@@ -32,38 +32,50 @@ export class UsersService {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // Создаем пользователя
-  const user = this.userRepository.create({
-    email,
-    password_hash: hashedPassword,
-    role,
-  });
+  const user = new User();
+  user.email = email;
+  user.password_hash = hashedPassword;
+  user.role = role;
   
   await this.userRepository.save(user);
 
   // Создаем профиль
-  const profile = this.profileRepository.create({
-    user,
-    first_name,
-    last_name,
-    phone,
-  });
+  const profile = new Profile();
+  profile.user = user;
+  profile.first_name = first_name;
+  profile.last_name = last_name;
+  profile.phone = phone || null;
+  profile.avatar_url = null;
+  profile.bio = null;
+  profile.city = null;
+  profile.date_of_birth = null;
+  profile.is_public = true;
   
   await this.profileRepository.save(profile);
 
   // Если это репетитор, создаем tutor_profile
   if (role === 'tutor') {
-    const tutorProfile = this.tutorProfileRepository.create({
-      profile,
-    });
+    const tutorProfile = new TutorProfile();
+    tutorProfile.profile = profile;
+    tutorProfile.education = null;
+    tutorProfile.experience = null;
+    tutorProfile.subjects = null;
+    tutorProfile.hourly_rate = null;
+    tutorProfile.is_verified = false;
+    
     await this.tutorProfileRepository.save(tutorProfile);
   }
 
-  // Получаем созданного пользователя с профилями
-  const createdUser = await this.findById(user.id);
+  // Загружаем пользователя с отношениями
+  const createdUser = await this.userRepository.findOne({
+    where: { id: user.id },
+    relations: ['profile', 'profile.tutor_profile']
+  });
+
   if (!createdUser) {
     throw new Error('Ошибка при создании пользователя');
   }
-  
+
   return createdUser;
 }
 

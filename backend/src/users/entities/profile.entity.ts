@@ -11,26 +11,26 @@ export class Profile {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column()
+  @Column({ default: '' })
   first_name: string;
 
-  @Column()
+  @Column({ default: '' })
   last_name: string;
 
-  @Column({ nullable: true })
-  avatar_url: string;
+  @Column({ nullable: true, type: 'varchar' })
+  avatar_url: string | null;
 
-  @Column({ nullable: true })
-  phone: string;
+  @Column({ nullable: true, type: 'varchar' })
+  phone: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  bio: string;
+  @Column({ nullable: true, type: 'text' })
+  bio: string | null;
 
-  @Column({ nullable: true })
-  city: string;
+  @Column({ nullable: true, type: 'varchar' })
+  city: string | null;
 
-  @Column({ type: 'date', nullable: true })
-  date_of_birth: Date;
+  @Column({ nullable: true, type: 'date' })
+  date_of_birth: Date | null;
 
   @Column({ default: true })
   is_public: boolean;
