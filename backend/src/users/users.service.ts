@@ -20,64 +20,62 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-  const { email, password, role, first_name, last_name, phone } = createUserDto;
+    const { email, password, role, first_name, last_name, phone } = createUserDto;
 
-  // Проверяем, существует ли пользователь
-  const existingUser = await this.userRepository.findOne({ where: { email } });
-  if (existingUser) {
-    throw new ConflictException('Пользователь с таким email уже существует');
-  }
+    // Проверяем, существует ли пользователь
+    const existingUser = await this.userRepository.findOne({ where: { email } });
+    if (existingUser) {
+      throw new ConflictException('Пользователь с таким email уже существует');
+    }
 
-  // Хешируем пароль
-  const hashedPassword = await bcrypt.hash(password, 10);
+    // Хешируем пароль
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Создаем пользователя
-  const user = new User();
-  user.email = email;
-  user.password_hash = hashedPassword;
-  user.role = role;
-  
-  await this.userRepository.save(user);
-
-  // Создаем профиль
-  const profile = new Profile();
-  profile.user = user;
-  profile.first_name = first_name;
-  profile.last_name = last_name;
-  profile.phone = phone || null;
-  profile.avatar_url = null;
-  profile.bio = null;
-  profile.city = null;
-  profile.date_of_birth = null;
-  profile.is_public = true;
-  
-  await this.profileRepository.save(profile);
-
-  // Если это репетитор, создаем tutor_profile
-  if (role === 'tutor') {
-    const tutorProfile = new TutorProfile();
-    tutorProfile.profile = profile;
-    tutorProfile.education = null;
-    tutorProfile.experience = null;
-    tutorProfile.subjects = null;
-    tutorProfile.hourly_rate = null;
-    tutorProfile.is_verified = false;
+    // Создаем пользователя
+    const user = new User();
+    user.email = email;
+    user.password_hash = hashedPassword;
+    user.role = role;
     
-    await this.tutorProfileRepository.save(tutorProfile);
+    await this.userRepository.save(user);
+
+    // Создаем профиль
+    const profile = new Profile();
+    profile.user = user;
+    profile.first_name = first_name;
+    profile.last_name = last_name;
+    profile.phone = phone || null;
+    profile.avatar_url = null;
+    profile.bio = null;
+    profile.city = null;
+    profile.date_of_birth = null;
+    
+    await this.profileRepository.save(profile);
+
+    // Если это репетитор, создаем tutor_profile
+    if (role === 'tutor') {
+      const tutorProfile = new TutorProfile();
+      tutorProfile.profile = profile;
+      tutorProfile.education = null;
+      tutorProfile.experience = null;
+      tutorProfile.is_verified = false;
+      // ✅ Убрали subjects и hourly_rate
+      
+      await this.tutorProfileRepository.save(tutorProfile);
+    }
+
+    // Загружаем пользователя с отношениями
+    const createdUser = await this.userRepository.findOne({
+      where: { id: user.id },
+      relations: ['profile', 'profile.tutor_profile']
+    });
+
+    if (!createdUser) {
+      throw new Error('Ошибка при создании пользователя');
+    }
+
+    return createdUser;
   }
-
-  // Загружаем пользователя с отношениями
-  const createdUser = await this.userRepository.findOne({
-    where: { id: user.id },
-    relations: ['profile', 'profile.tutor_profile']
-  });
-
-  if (!createdUser) {
-    throw new Error('Ошибка при создании пользователя');
-  }
-
-  return createdUser;
-}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ 
@@ -100,16 +98,6 @@ export class UsersService {
       throw new NotFoundException('Пользователь не найден');
     }
 
-    if (!user.profile.is_public) {
-      return {
-        id: user.id,
-        first_name: user.profile.first_name,
-        last_name: user.profile.last_name,
-        avatar_url: user.profile.avatar_url,
-        message: 'Профиль скрыт'
-      };
-    }
-
     // Возвращаем публичную информацию
     const publicProfile: any = {
       id: user.id,
@@ -124,9 +112,8 @@ export class UsersService {
     if (user.role === 'tutor' && user.profile.tutor_profile) {
       publicProfile.education = user.profile.tutor_profile.education;
       publicProfile.experience = user.profile.tutor_profile.experience;
-      publicProfile.subjects = user.profile.tutor_profile.subjects;
-      publicProfile.hourly_rate = user.profile.tutor_profile.hourly_rate;
       publicProfile.is_verified = user.profile.tutor_profile.is_verified;
+      // ✅ Убрали subjects и hourly_rate
     }
 
     return publicProfile;
@@ -140,7 +127,7 @@ export class UsersService {
 
     // Обновляем основные поля профиля
     const profileUpdate: any = {};
-    const fields = ['first_name', 'last_name', 'avatar_url', 'phone', 'bio', 'city', 'is_public'];
+    const fields = ['first_name', 'last_name', 'avatar_url', 'phone', 'bio', 'city'];
     fields.forEach(field => {
       if (updateData[field] !== undefined) {
         profileUpdate[field] = updateData[field];
@@ -157,7 +144,7 @@ export class UsersService {
     // Если это репетитор, обновляем tutor_profile
     if (user.role === 'tutor' && user.profile.tutor_profile) {
       const tutorUpdate: any = {};
-      const tutorFields = ['education', 'experience', 'subjects', 'hourly_rate'];
+      const tutorFields = ['education', 'experience']; // ✅ Только education и experience
       tutorFields.forEach(field => {
         if (updateData[field] !== undefined) {
           tutorUpdate[field] = updateData[field];

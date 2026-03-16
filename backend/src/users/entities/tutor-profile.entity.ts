@@ -16,12 +16,6 @@ export class TutorProfile {
   @Column({ nullable: true, type: 'text' })
   experience: string | null;
 
-  @Column({ nullable: true, type: 'text' })
-  subjects: string | null;
-
-  @Column({ nullable: true, type: 'decimal', precision: 10, scale: 2 })
-  hourly_rate: number | null;
-
   @Column({ default: false })
   is_verified: boolean;
 }

@@ -32,9 +32,6 @@ export class Profile {
   @Column({ nullable: true, type: 'date' })
   date_of_birth: Date | null;
 
-  @Column({ default: true })
-  is_public: boolean;
-
   @OneToOne(() => TutorProfile, tutorProfile => tutorProfile.profile, { cascade: true })
   tutor_profile: TutorProfile;
 }

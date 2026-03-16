@@ -26,23 +26,10 @@ export class UpdateProfileDto {
   city?: string;
 
   @IsOptional()
-  @IsBoolean()
-  is_public?: boolean;
-
-  @IsOptional()
   @IsString()
   education?: string;
 
   @IsOptional()
   @IsString()
   experience?: string;
-
-  @IsOptional()
-  @IsString()
-  subjects?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  hourly_rate?: number;
 }
