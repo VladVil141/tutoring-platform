@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ListingsModule } from './listings/listings.module'; // <-- добавить
 
 @Module({
   imports: [
@@ -21,11 +22,12 @@ import { UsersModule } from './users/users.module';
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // true только для разработки!
+        synchronize: true,
       }),
     }),
     AuthModule,
     UsersModule,
+    ListingsModule, // <-- добавить
   ],
   controllers: [],
   providers: [],
