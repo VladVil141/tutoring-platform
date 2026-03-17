@@ -7,7 +7,12 @@
             Tutoring Platform
           </div>
           
-          <div style="display: flex; gap: 15px;">
+          <div style="display: flex; gap: 15px; align-items: center;">
+            <!-- Кнопка Каталог - видна всем! -->
+            <el-button type="text" style="color: white; margin-right: 5px;" @click="$router.push('/catalog')">
+              Каталог
+            </el-button>
+            
             <template v-if="authStore.isAuthenticated">
               <el-button type="text" style="color: white;" @click="$router.push('/cabinet')">
                 Личный кабинет

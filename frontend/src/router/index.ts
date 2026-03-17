@@ -31,6 +31,29 @@ const router = createRouter({
       component: () => import('../views/CabinetView.vue'),
       meta: { requiresAuth: true },
     },
+    // Новые маршруты для объявлений
+    {
+      path: '/listings/new',
+      name: 'new-listing',
+      component: () => import('../views/ListingFormView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
+    },
+    {
+      path: '/listings/:id/edit',
+      name: 'edit-listing',
+      component: () => import('../views/ListingFormView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
+    },
+    {
+      path: '/listings/:id',
+      name: 'listing-detail',
+      component: () => import('../views/ListingDetailView.vue'),
+    },
+    {
+      path: '/catalog',
+      name: 'catalog',
+      component: () => import('../views/CatalogView.vue'),
+    },
   ],
 })
 
@@ -38,11 +61,19 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   
+  // Проверка авторизации
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else {
-    next()
+    return
   }
+  
+  // Проверка роли репетитора
+  if (to.meta.requiresTutor && !authStore.isTutor) {
+    next('/')
+    return
+  }
+  
+  next()
 })
 
 export default router

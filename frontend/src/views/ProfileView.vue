@@ -3,7 +3,7 @@
     <el-card v-if="profile" :loading="loading">
       <template #header>
         <div style="display: flex; align-items: center; gap: 20px;">
-          <el-avatar :size="80" :src="profile.avatar_url" style="background: #409EFF;">
+          <el-avatar :size="80" :src="profile.avatar_url" style="background: #2c3e50;">
             {{ profile.first_name?.charAt(0) }}{{ profile.last_name?.charAt(0) }}
           </el-avatar>
           <div>
@@ -22,8 +22,7 @@
         <template v-if="profile.role === 'tutor'">
           <el-descriptions-item label="Образование">{{ profile.education || 'Не указано' }}</el-descriptions-item>
           <el-descriptions-item label="Опыт">{{ profile.experience || 'Не указан' }}</el-descriptions-item>
-          <el-descriptions-item label="Предметы">{{ profile.subjects || 'Не указаны' }}</el-descriptions-item>
-          <el-descriptions-item label="Стоимость">{{ profile.hourly_rate ? profile.hourly_rate + ' ₽/час' : 'Не указана' }}</el-descriptions-item>
+          <!-- Убрали subjects и hourly_rate -->
           <el-descriptions-item label="Статус">
             <el-tag :type="profile.is_verified ? 'success' : 'info'" size="small">
               {{ profile.is_verified ? 'Проверен' : 'Не проверен' }}
@@ -32,15 +31,12 @@
         </template>
       </el-descriptions>
 
-      <div v-if="!profile.is_public" style="margin-top: 20px;">
-        <el-alert type="warning" :closable="false">
-          Этот профиль скрыт владельцем
-        </el-alert>
-      </div>
-
-      <div v-if="authStore.isAuthenticated && authStore.user?.id !== Number(route.params.id)" 
-           style="margin-top: 20px; text-align: center;">
-        <el-button type="primary" @click="contactTutor" v-if="profile.role === 'tutor'">
+      <div style="margin-top: 20px; text-align: center;">
+        <el-button 
+          v-if="authStore.isAuthenticated && authStore.user?.id !== Number(route.params.id) && profile.role === 'tutor'" 
+          type="primary" 
+          @click="contactTutor"
+        >
           Связаться с репетитором
         </el-button>
       </div>
@@ -93,8 +89,7 @@ function contactTutor() {
     router.push('/login')
     ElMessage.info('Войдите, чтобы связаться с репетитором')
   } else {
-    ElMessage.info('Функция будет доступна в Этапе 2')
-    // TODO: Переход к созданию заявки
+    ElMessage.info('Функция будет доступна в Этапе 3')
   }
 }
 </script>

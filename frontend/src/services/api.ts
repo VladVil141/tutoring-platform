@@ -47,4 +47,24 @@ export const userService = {
   updateProfile: (data: Partial<Profile & TutorProfile>) => api.put('/users/profile', data),
 };
 
+export const listingService = {
+  // Создать объявление
+  create: (data: any) => api.post('/listings', data),
+  
+  // Получить все объявления (с фильтрами)
+  getAll: (params?: any) => api.get('/listings', { params }),
+  
+  // Получить одно объявление
+  getOne: (id: number) => api.get(`/listings/${id}`),
+  
+  // Получить мои объявления (для репетитора)
+  getMyListings: () => api.get('/listings/my/listings'),
+  
+  // Обновить объявление
+  update: (id: number, data: any) => api.put(`/listings/${id}`, data),
+  
+  // Удалить объявление
+  delete: (id: number) => api.delete(`/listings/${id}`),
+};
+
 export default api;
