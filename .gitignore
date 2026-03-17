@@ -1,16 +1,35 @@
 # Dependencies
 node_modules/
 package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # Environment files
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
+
+# Secrets and keys
+*.key
+*.pem
+*.crt
+*.priv
+*.pub
+secrets.json
+credentials.json
+oauth-*.json
+service-account-*.json
+passwords.txt
 
 # Build outputs
 dist/
 build/
 *.tsbuildinfo
+out/
+tmp/
 
 # Logs
 logs/
@@ -18,6 +37,8 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # IDE
 .vscode/
@@ -26,10 +47,159 @@ yarn-error.log*
 *.swo
 *~
 .DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
 
 # Uploads
 uploads/
 public/uploads/
+storage/
+public/storage/
+temp/
+uploads/*
 
 # Testing
 coverage/
+.nyc_output/
+.reports/
+test-results/
+junit.xml
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.rdb
+dump.rdb
+
+# Cache
+.cache/
+.cache-loader
+.eslintcache
+.stylelintcache
+.temp
+.tscache
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor directories and files
+.project
+.classpath
+.settings/
+*.sublime-*
+*.sublime-workspace
+
+# NestJS specific
+ormconfig.json
+ormconfig.js
+*.module.js
+*.module.d.ts
+
+# Vue specific
+*.log.*
+*.local
+/dist
+/dist-ssr
+*.local
+.vite-ssr-dist
+.vite-ssr
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+docker-compose*.yaml
+.env.docker
+
+# Backups
+*.backup
+*.bak
+*.old
+*.orig
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Memory dumps
+core.*
+heapdump-*.snapshot
+*.log.*
+
+# Nuxt.js
+.nuxt
+.nuxt-*
+*.nuxt
+.nitro
+.cache
+.output
+
+# Next.js
+.next/
+out/
+build/
+.nx/
+
+# PM2
+pm2-*.log
+.pm2/
+ecosystem.config.js
+
+# Sentry
+.sentryclirc
+
+# ESLint
+.eslintcache
+.eslintrc.js
+.eslintrc.json
+.eslintrc.yaml
+
+# Prettier
+.prettierrc
+.prettierrc.js
+.prettierrc.json
+.prettierrc.yaml
+
+# Babel
+babel.config.js
+.babelrc
+.babelrc.js
+.babelrc.json
+.babelrc.yaml
+
+# Webpack
+webpack.config.js
+webpack.config.*.js
+
+# Vite
+vite.config.js
+vite.config.ts
+vite.config.*.js
+vite.config.*.ts
+
+# Environment examples (это можно пушить)
+!.env.example
+!.env.local.example
