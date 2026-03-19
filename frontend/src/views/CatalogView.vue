@@ -1,17 +1,27 @@
 <template>
   <div class="catalog">
-    <h1 class="page-title">Каталог репетиторов</h1>
+    <h1 class="page-title">Каталог занятий</h1>
     
     <!-- Фильтры -->
     <el-card class="filters-card">
       <el-form :inline="true" :model="filters" class="filters-form">
+        
+        <!-- Переключатель типа -->
+        <el-form-item label="Тип занятия">
+          <el-radio-group v-model="filters.type" @change="loadListings">
+            <el-radio value="all">Все</el-radio>
+            <el-radio value="individual">Индивидуальные</el-radio>
+            <el-radio value="group">Групповые</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
         <el-form-item label="Предмет">
           <el-input 
             v-model="filters.subject" 
             placeholder="Поиск по предмету"
             clearable
-            @clear="applyFilters"
-            @keyup.enter="applyFilters"
+            @clear="loadListings"
+            @keyup.enter="loadListings"
           />
         </el-form-item>
         
@@ -22,7 +32,7 @@
             :max="10000"
             placeholder="От"
             style="width: 120px"
-            @change="applyFilters"
+            @change="loadListings"
           />
         </el-form-item>
         
@@ -33,7 +43,7 @@
             :max="10000"
             placeholder="До"
             style="width: 120px"
-            @change="applyFilters"
+            @change="loadListings"
           />
         </el-form-item>
         
@@ -43,7 +53,7 @@
             placeholder="Все уровни" 
             clearable
             style="width: 150px"
-            @change="applyFilters"
+            @change="loadListings"
           >
             <el-option label="Школьный" value="school" />
             <el-option label="Университетский" value="university" />
@@ -57,7 +67,7 @@
             placeholder="Все форматы" 
             clearable
             style="width: 150px"
-            @change="applyFilters"
+            @change="loadListings"
           >
             <el-option label="Онлайн" value="online" />
             <el-option label="Офлайн" value="offline" />
@@ -66,7 +76,7 @@
         </el-form-item>
         
         <el-form-item>
-          <el-button type="primary" @click="applyFilters" :loading="loading">
+          <el-button type="primary" @click="loadListings" :loading="loading">
             Поиск
           </el-button>
           <el-button @click="resetFilters">Сбросить</el-button>
@@ -76,9 +86,15 @@
 
     <!-- Результаты -->
     <div v-loading="loading">
-      <el-row :gutter="20" v-if="listings.length > 0">
-        <el-col :span="8" v-for="listing in listings" :key="listing.id">
-          <el-card class="listing-card" shadow="hover" @click="goToDetail(listing.id)">
+      <el-row :gutter="20" v-if="allListings.length > 0">
+        <el-col :span="8" v-for="listing in allListings" :key="listing.id + '-' + listing.type">
+          <!-- Индивидуальные карточки -->
+          <el-card 
+            v-if="listing.type === 'individual'" 
+            class="listing-card" 
+            shadow="hover" 
+            @click="goToDetail(listing.id, 'individual')"
+          >
             <div class="listing-header">
               <el-avatar :size="60" :src="listing.tutor?.profile?.avatar_url" style="background: #2c3e50;">
                 {{ listing.tutor?.profile?.first_name?.charAt(0) }}{{ listing.tutor?.profile?.last_name?.charAt(0) }}
@@ -90,6 +106,7 @@
             </div>
             
             <div class="listing-body">
+              <div class="listing-type-badge individual">Индивидуальное</div>
               <h2 class="listing-subject">{{ listing.subject }}</h2>
               <p class="listing-description">{{ truncateText(listing.description, 100) }}</p>
               
@@ -103,6 +120,52 @@
               </div>
             </div>
           </el-card>
+          <!-- Групповые карточки -->
+          <el-card 
+            v-else
+            class="listing-card group-card" 
+            shadow="hover" 
+            @click="goToDetail(listing.id, 'group')"
+          >
+          <div class="listing-header">
+            <el-avatar :size="60" :src="listing.tutor?.profile?.avatar_url" style="background: #2c3e50;">
+              {{ listing.tutor?.profile?.first_name?.charAt(0) }}{{ listing.tutor?.profile?.last_name?.charAt(0) }}
+            </el-avatar>
+            <div class="listing-tutor">
+              <h3>{{ listing.tutor?.profile?.first_name }} {{ listing.tutor?.profile?.last_name }}</h3>
+              <p class="tutor-city">{{ listing.tutor?.profile?.city || 'Город не указан' }}</p>
+            </div>
+          </div>
+  
+          <div class="listing-body">
+            <div class="listing-type-badge group">Групповое</div>
+              <h2 class="listing-subject">{{ listing.subject }}</h2>
+              <p class="listing-description">{{ truncateText(listing.description, 100) }}</p>
+    
+              <!-- Поля для группы с проверкой типа -->
+              <template v-if="'schedule' in listing">
+                <div class="listing-schedule">
+                <el-icon><Calendar /></el-icon>
+                {{ listing.schedule }}
+                </div>
+                <div class="listing-students">
+                  <el-progress 
+                    :percentage="(listing.current_students / listing.max_students) * 100" 
+                    :format="() => `${listing.current_students}/${listing.max_students} мест`"
+                  />
+                </div>
+              </template>
+    
+              <div class="listing-tags">
+                <el-tag size="small" type="info">{{ formatLevel(listing.level) }}</el-tag>
+                <el-tag size="small" type="success">{{ formatFormat(listing.format) }}</el-tag>
+              </div>
+    
+              <div class="listing-price">
+                {{ Number(listing.price).toLocaleString() }} ₽ / час с человека
+              </div>
+            </div>
+          </el-card>
         </el-col>
       </el-row>
 
@@ -112,16 +175,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useListingStore } from '../stores/listing';
+import { useGroupListingStore } from '../stores/groupListing';
+import { Calendar } from '@element-plus/icons-vue';
 import { storeToRefs } from 'pinia';
 
 const router = useRouter();
 const listingStore = useListingStore();
-const { listings, loading } = storeToRefs(listingStore);
+const groupStore = useGroupListingStore();
+const { listings } = storeToRefs(listingStore);
+const { listings: groupListings } = storeToRefs(groupStore);
+const loading = ref(false);
 
 const filters = ref({
+  type: 'all',
   subject: '',
   minPrice: undefined,
   maxPrice: undefined,
@@ -129,28 +198,43 @@ const filters = ref({
   format: ''
 });
 
+// Объединяем оба типа с пометкой
+const allListings = computed(() => {
+  const individual = listings.value.map(l => ({ ...l, type: 'individual' }));
+  const group = groupListings.value.map(g => ({ ...g, type: 'group' }));
+  
+  if (filters.value.type === 'individual') return individual;
+  if (filters.value.type === 'group') return group;
+  return [...individual, ...group];
+});
+
 onMounted(() => {
   loadListings();
 });
 
 async function loadListings() {
-  const params: any = {};
+  loading.value = true;
   
-  if (filters.value.subject) params.subject = filters.value.subject;
-  if (filters.value.minPrice) params.minPrice = filters.value.minPrice;
-  if (filters.value.maxPrice) params.maxPrice = filters.value.maxPrice;
-  if (filters.value.level) params.level = filters.value.level;
-  if (filters.value.format) params.format = filters.value.format;
+  const params: any = {
+    subject: filters.value.subject || undefined,
+    level: filters.value.level || undefined,
+    format: filters.value.format || undefined,
+    minPrice: filters.value.minPrice,
+    maxPrice: filters.value.maxPrice
+  };
   
-  await listingStore.fetchListings(params);
-}
-
-function applyFilters() {
-  loadListings();
+  // Загружаем оба типа одновременно
+  await Promise.all([
+    listingStore.fetchListings(params),
+    groupStore.fetchListings(params)
+  ]);
+  
+  loading.value = false;
 }
 
 function resetFilters() {
   filters.value = {
+    type: 'all',
     subject: '',
     minPrice: undefined,
     maxPrice: undefined,
@@ -183,8 +267,12 @@ function truncateText(text: string, length: number) {
   return text.substring(0, length) + '...';
 }
 
-function goToDetail(id: number) {
-  router.push(`/listings/${id}`);
+function goToDetail(id: number, type: string) {
+  if (type === 'individual') {
+    router.push(`/listings/${id}`);
+  } else {
+    router.push(`/group-listings/${id}`);
+  }
 }
 </script>
 
@@ -224,6 +312,10 @@ function goToDetail(id: number) {
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
+.group-card {
+  border-left: 4px solid #ff9800;
+}
+
 .listing-header {
   display: flex;
   align-items: center;
@@ -249,6 +341,25 @@ function goToDetail(id: number) {
   flex: 1;
 }
 
+.listing-type-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.listing-type-badge.individual {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.listing-type-badge.group {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
 .listing-subject {
   margin: 0 0 10px;
   font-size: 20px;
@@ -261,6 +372,18 @@ function goToDetail(id: number) {
   margin-bottom: 15px;
 }
 
+.listing-schedule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #ff9800;
+  margin-bottom: 10px;
+}
+
+.listing-students {
+  margin-bottom: 15px;
+}
+
 .listing-tags {
   display: flex;
   gap: 10px;
@@ -268,7 +391,7 @@ function goToDetail(id: number) {
 }
 
 .listing-price {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
   color: #2c3e50;
   text-align: right;

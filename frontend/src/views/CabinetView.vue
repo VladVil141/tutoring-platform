@@ -33,7 +33,7 @@
               <el-descriptions-item label="Город">{{ userProfile.city || 'Не указан' }}</el-descriptions-item>
               <el-descriptions-item label="О себе">{{ userProfile.bio || 'Нет информации' }}</el-descriptions-item>
               
-              <!-- Дополнительные поля для репетитора (берутся из tutor_profile) -->
+              <!-- Дополнительные поля для репетитора -->
               <template v-if="authStore.isTutor">
                 <el-descriptions-item label="Образование">
                   {{ userProfile.tutor_profile?.education || 'Не указано' }}
@@ -96,27 +96,61 @@
           <template #header>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <h2>Мои объявления</h2>
-              <el-button type="primary" @click="$router.push('/listings/new')">
-                + Создать объявление
-              </el-button>
+              <div>
+                <el-button type="primary" @click="$router.push('/listings/new')">
+                  + Индивидуальное
+                </el-button>
+                <el-button type="warning" @click="$router.push('/group-listings/new')">
+                  + Групповое
+                </el-button>
+              </div>
             </div>
           </template>
           
+          <!-- Фильтр по типу -->
+          <div style="margin-bottom: 20px;">
+            <el-radio-group v-model="listingFilter" @change="loadMyListings">
+              <el-radio value="all">Все</el-radio>
+              <el-radio value="individual">Индивидуальные</el-radio>
+              <el-radio value="group">Групповые</el-radio>
+            </el-radio-group>
+          </div>
+          
           <!-- Список объявлений -->
-          <div v-if="listingStore.myListings.length > 0">
-            <el-table :data="listingStore.myListings" style="width: 100%" v-loading="listingStore.loading">
+          <div v-if="filteredListings.length > 0">
+            <el-table :data="filteredListings" style="width: 100%" v-loading="loading">
+              <el-table-column prop="id" label="ID" width="60" />
               <el-table-column prop="subject" label="Предмет" width="150" />
+              <el-table-column label="Тип" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.type === 'group' ? 'warning' : 'primary'" size="small">
+                    {{ row.type === 'group' ? 'Групповое' : 'Индивидуальное' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
               <el-table-column prop="price" label="Цена (₽/час)" width="120">
                 <template #default="{ row }">
                   {{ Number(row.price).toLocaleString() }} ₽
                 </template>
               </el-table-column>
-              <el-table-column prop="level" label="Уровень" width="120">
+              <el-table-column v-if="listingFilter !== 'individual'" prop="schedule" label="Расписание" width="120">
+                <template #default="{ row }">
+                  <span v-if="row.type === 'group'">{{ row.schedule }}</span>
+                  <span v-else>—</span>
+                </template>
+              </el-table-column>
+              <el-table-column v-if="listingFilter !== 'individual'" label="Места" width="100">
+                <template #default="{ row }">
+                  <span v-if="row.type === 'group'">{{ row.current_students }}/{{ row.max_students }}</span>
+                  <span v-else>—</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="level" label="Уровень" width="100">
                 <template #default="{ row }">
                   <el-tag size="small">{{ formatLevel(row.level) }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="format" label="Формат" width="100">
+              <el-table-column prop="format" label="Формат" width="80">
                 <template #default="{ row }">
                   {{ formatFormat(row.format) }}
                 </template>
@@ -125,10 +159,17 @@
               <el-table-column label="Действия" width="220" fixed="right">
                 <template #default="{ row }">
                   <div style="display: flex; gap: 1px;">
-                    <el-button size="small" @click="$router.push(`/listings/${row.id}/edit`)">
+                    <el-button 
+                      size="small" 
+                      @click="$router.push(row.type === 'group' ? `/group-listings/${row.id}/edit` : `/listings/${row.id}/edit`)"
+                    >
                       Редактировать
                     </el-button>
-                    <el-button size="small" type="danger" @click="handleDelete(row.id)">
+                    <el-button 
+                      size="small" 
+                      type="danger" 
+                      @click="handleDelete(row)"
+                    >
                       Удалить
                     </el-button>
                   </div>
@@ -141,23 +182,23 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Вкладка для репетитора: Заявки ко мне (Этап 3) -->
+      <!-- Вкладка для репетитора: Заявки ко мне (Этап 4) -->
       <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="requests">
         <el-card>
           <template #header>
             <h2>Заявки на занятия</h2>
           </template>
-          <el-empty description="Функция будет доступна в Этапе 3" />
+          <el-empty description="Функция будет доступна в Этапе 4" />
         </el-card>
       </el-tab-pane>
 
-      <!-- Вкладка для ученика: Мои заявки (Этап 3) -->
+      <!-- Вкладка для ученика: Мои заявки (Этап 4) -->
       <el-tab-pane v-if="authStore.isStudent" label="Мои заявки" name="bookings">
         <el-card>
           <template #header>
             <h2>Мои заявки</h2>
           </template>
-          <el-empty description="Функция будет доступна в Этапе 3" />
+          <el-empty description="Функция будет доступна в Этапе 4" />
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -169,17 +210,39 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useListingStore } from '../stores/listing';
+import { useGroupListingStore } from '../stores/groupListing';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const listingStore = useListingStore();
+const groupStore = useGroupListingStore();
 
 const activeTab = ref('profile');
 const editMode = ref(false);
+const listingFilter = ref('all');
+const loading = ref(false);
 
 const userProfile = computed(() => authStore.profile?.profile || null);
+
+// Объединенный список всех объявлений
+const allListings = computed(() => {
+  const individual = listingStore.myListings.map(l => ({ ...l, type: 'individual' }));
+  const group = groupStore.myListings.map(g => ({ ...g, type: 'group' }));
+  return [...individual, ...group];
+});
+
+// Отфильтрованный список по типу
+const filteredListings = computed(() => {
+  if (listingFilter.value === 'individual') {
+    return allListings.value.filter(l => l.type === 'individual');
+  }
+  if (listingFilter.value === 'group') {
+    return allListings.value.filter(l => l.type === 'group');
+  }
+  return allListings.value;
+});
 
 const editForm = ref({
   first_name: '',
@@ -191,10 +254,20 @@ const editForm = ref({
   experience: ''
 });
 
+// Загрузка всех объявлений
+async function loadMyListings() {
+  loading.value = true;
+  await Promise.all([
+    listingStore.fetchMyListings(),
+    groupStore.fetchMyListings()
+  ]);
+  loading.value = false;
+}
+
 // Следим за изменением таба
 const handleTabChange = (tab: string) => {
   if (tab === 'listings' && authStore.isTutor) {
-    listingStore.fetchMyListings();
+    loadMyListings();
   }
 };
 
@@ -212,7 +285,7 @@ onMounted(async () => {
   if (route.query.tab === 'listings') {
     activeTab.value = 'listings';
     if (authStore.isTutor) {
-      listingStore.fetchMyListings();
+      await loadMyListings();
     }
   }
 });
@@ -261,7 +334,8 @@ function formatFormat(format: string) {
   return map[format] || format;
 }
 
-async function handleDelete(id: number) {
+// Удаление объявления с определением типа
+async function handleDelete(row: any) {
   try {
     await ElMessageBox.confirm('Вы уверены, что хотите удалить это объявление?', 'Подтверждение', {
       confirmButtonText: 'Удалить',
@@ -269,7 +343,11 @@ async function handleDelete(id: number) {
       type: 'warning',
     });
     
-    await listingStore.deleteListing(id);
+    if (row.type === 'group') {
+      await groupStore.deleteListing(row.id);
+    } else {
+      await listingStore.deleteListing(row.id);
+    }
   } catch (error) {
     // Пользователь отменил удаление
   }

@@ -49,6 +49,24 @@ const router = createRouter({
       name: 'listing-detail',
       component: () => import('../views/ListingDetailView.vue'),
     },
+    // 👇 Групповые маршруты
+    {
+      path: '/group-listings/new',
+      name: 'new-group-listing',
+      component: () => import('../views/ListingFormView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
+    },
+    {
+      path: '/group-listings/:id/edit',
+      name: 'edit-group-listing',
+      component: () => import('../views/ListingFormView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
+    },
+    {
+      path: '/group-listings/:id',
+      name: 'group-listing-detail',
+      component: () => import('../views/GroupListingDetailView.vue'),
+    },
     {
       path: '/catalog',
       name: 'catalog',

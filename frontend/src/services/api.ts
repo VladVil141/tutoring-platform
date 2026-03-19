@@ -67,4 +67,24 @@ export const listingService = {
   delete: (id: number) => api.delete(`/listings/${id}`),
 };
 
+export const groupListingService = {
+  // Создать групповое объявление
+  create: (data: any) => api.post('/group-listings', data),
+  
+  // Получить все групповые объявления (с фильтрами)
+  getAll: (params?: any) => api.get('/group-listings', { params }),
+  
+  // Получить одно групповое объявление
+  getOne: (id: number) => api.get(`/group-listings/${id}`),
+  
+  // Получить мои групповые объявления
+  getMyListings: () => api.get('/group-listings/my/listings'),
+  
+  // Обновить групповое объявление
+  update: (id: number, data: any) => api.put(`/group-listings/${id}`, data),
+  
+  // Удалить групповое объявление
+  delete: (id: number) => api.delete(`/group-listings/${id}`),
+};
+
 export default api;
