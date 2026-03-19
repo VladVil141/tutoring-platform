@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateRecurringBookingDto } from './dto/create-recurring-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,7 +21,30 @@ export class BookingsController {
     return { available };
   }
 
-  // 2. Потом методы с авторизацией
+  // 2. Пути для регулярных занятий
+  @Post('recurring')
+  @UseGuards(JwtAuthGuard)
+  async createRecurring(@Request() req, @Body() createDto: CreateRecurringBookingDto) {
+    if (req.user.role !== 'student') {
+      throw new ForbiddenException('Только ученики могут создавать заявки');
+    }
+    return this.bookingsService.createRecurring(req.user.userId, createDto);
+  }
+
+  @Get('recurring/:recurringId')
+  @UseGuards(JwtAuthGuard)
+  async findRecurring(@Param('recurringId') recurringId: string) {
+    return this.bookingsService.findRecurring(recurringId);
+  }
+
+  @Delete('recurring/:recurringId')
+  @UseGuards(JwtAuthGuard)
+  async cancelRecurring(@Param('recurringId') recurringId: string, @Request() req) {
+    await this.bookingsService.cancelRecurring(recurringId, req.user.userId, req.user.role);
+    return { message: 'Серия занятий отменена' };
+  }
+
+  // 3. Обычные заявки
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(@Request() req, @Body() createDto: CreateBookingDto) {
@@ -48,7 +72,7 @@ export class BookingsController {
     return this.bookingsService.findTutorBookings(req.user.userId, query);
   }
 
-  // 3. Методы с динамическими параметрами (:id) - САМЫЕ ПОСЛЕДНИЕ
+  // 4. Методы с динамическими параметрами (:id) - САМЫЕ ПОСЛЕДНИЕ
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string) {

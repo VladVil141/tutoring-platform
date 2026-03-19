@@ -48,7 +48,6 @@
               </div>
             </div>
 
-            <!-- Дополнительная информация о репетиторе -->
             <el-descriptions :column="2" border class="tutor-descriptions">
               <el-descriptions-item label="Образование">
                 {{ listing.tutor?.profile?.education || 'Не указано' }}
@@ -136,50 +135,104 @@
     </div>
 
     <!-- Модальное окно записи -->
-    <el-dialog v-model="bookingModalVisible" title="Запись на занятие" width="400px">
-      <el-form :model="bookingForm" label-width="100px">
-        <el-form-item label="Дата">
-          <el-date-picker 
-            v-model="bookingForm.date" 
-            type="date" 
-            placeholder="Выберите дату"
-            format="DD.MM.YYYY"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledDate"
-            style="width: 100%;"
-          />
-        </el-form-item>
-        
-        <el-form-item label="Время">
-          <el-time-select
-            v-model="bookingForm.time"
-            start="08:00"
-            step="00:30"
-            end="22:00"
-            placeholder="Выберите время"
-            style="width: 100%;"
-          />
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="bookingModalVisible = false">Отмена</el-button>
-          <el-button 
-            type="primary" 
-            @click="submitBooking" 
-            :loading="bookingLoading"
-          >
-            Отправить заявку
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
+<el-dialog v-model="bookingModalVisible" :title="isRecurring ? 'Регулярные занятия' : 'Запись на занятие'" width="500px">
+  <el-form :model="bookingForm" label-width="120px">
+    
+    <!-- Для разовых занятий показываем выбор даты -->
+    <template v-if="!isRecurring">
+      <el-form-item label="Дата">
+        <el-date-picker 
+          v-model="bookingForm.date" 
+          type="date" 
+          placeholder="Выберите дату"
+          format="DD.MM.YYYY"
+          value-format="YYYY-MM-DD"
+          :disabled-date="disabledDate"
+          style="width: 100%;"
+        />
+      </el-form-item>
+    </template>
+    
+    <!-- Для регулярных занятий дата не нужна -->
+    
+    <el-form-item label="Время">
+      <el-time-select
+        v-model="bookingForm.time"
+        start="08:00"
+        step="00:30"
+        end="22:00"
+        placeholder="Выберите время"
+        style="width: 100%;"
+      />
+    </el-form-item>
+
+    <el-form-item label="Тип занятия">
+      <el-radio-group v-model="isRecurring">
+        <el-radio :value="false">Разовое</el-radio>
+        <el-radio :value="true">Регулярное</el-radio>
+      </el-radio-group>
+    </el-form-item>
+
+    <!-- Блок для регулярных занятий -->
+<template v-if="isRecurring">
+  <el-form-item label="Дни недели">
+    <el-checkbox-group v-model="recurringForm.weekdays">
+      <el-checkbox label="ПН">Пн</el-checkbox>
+      <el-checkbox label="ВТ">Вт</el-checkbox>
+      <el-checkbox label="СР">Ср</el-checkbox>
+      <el-checkbox label="ЧТ">Чт</el-checkbox>
+      <el-checkbox label="ПТ">Пт</el-checkbox>
+      <el-checkbox label="СБ">Сб</el-checkbox>
+      <el-checkbox label="ВС">Вс</el-checkbox>
+    </el-checkbox-group>
+  </el-form-item>
+
+  <el-form-item label="Количество недель">
+    <el-slider 
+      v-model="recurringForm.weeks" 
+      :min="1" 
+      :max="12" 
+      :marks="{1: '1', 4: '4', 8: '8', 12: '12'}"
+      show-input
+    />
+  </el-form-item>
+
+  <!-- Отступ перед алертом -->
+  <div style="height: 20px;"></div>
+
+  <!-- Используем сетку Element Plus -->
+  <el-row>
+    <el-col :span="24">
+      <el-alert
+        v-if="recurringForm.weekdays.length > 0"
+        type="info"
+        :closable="false">
+        <p>Будет создано {{ recurringForm.weekdays.length * recurringForm.weeks }} занятий</p>
+        <p style="font-size: 0.9em; color: #666;">Начиная со следующей недели</p>
+      </el-alert>
+    </el-col>
+  </el-row>
+</template>
+  </el-form>
+  
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="bookingModalVisible = false">Отмена</el-button>
+      <el-button 
+        type="primary" 
+        @click="submitBooking" 
+        :loading="bookingLoading"
+      >
+        {{ isRecurring ? 'Создать расписание' : 'Отправить заявку' }}
+      </el-button>
+    </span>
+  </template>
+</el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useListingStore } from '../stores/listing';
 import { useBookingStore } from '../stores/booking';
@@ -196,9 +249,9 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const bookingModalVisible = ref(false);
 const bookingLoading = ref(false);
+const isRecurring = ref(false);
 
 const listing = computed(() => listingStore.currentListing);
-
 const isOwner = computed(() => {
   if (!authStore.user || !listing.value) return false;
   return authStore.user.id === listing.value.tutor_id;
@@ -207,6 +260,29 @@ const isOwner = computed(() => {
 const bookingForm = ref({
   date: '',
   time: ''
+});
+
+const recurringForm = ref({
+  weekdays: [] as string[],
+  weeks: 4
+});
+
+// Маппинг дней недели
+const dayMap: Record<string, number> = {
+  'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
+};
+
+const reverseDayMap: Record<number, string> = {
+  1: 'ПН', 2: 'ВТ', 3: 'СР', 4: 'ЧТ', 5: 'ПТ', 6: 'СБ', 0: 'ВС'
+};
+
+// Сброс формы при закрытии
+watch(bookingModalVisible, (val) => {
+  if (!val) {
+    bookingForm.value = { date: '', time: '' };
+    recurringForm.value = { weekdays: [], weeks: 4 };
+    isRecurring.value = false;
+  }
 });
 
 onMounted(async () => {
@@ -291,38 +367,65 @@ function openBookingModal() {
 }
 
 async function submitBooking() {
-  if (!bookingForm.value.date || !bookingForm.value.time) {
-    ElMessage.warning('Выберите дату и время');
+  if (!bookingForm.value.time) {
+    ElMessage.warning('Выберите время');
     return;
   }
   
   bookingLoading.value = true;
   
-  // Проверяем доступность
-  const available = await bookingStore.checkAvailability(
-    listing.value!.id,
-    bookingForm.value.date,
-    bookingForm.value.time
-  );
-  
-  if (!available) {
-    ElMessage.error('Это время уже занято');
-    bookingLoading.value = false;
-    return;
+  if (isRecurring.value) {
+    // Регулярное занятие
+    if (recurringForm.value.weekdays.length === 0) {
+      ElMessage.warning('Выберите дни недели');
+      bookingLoading.value = false;
+      return;
+    }
+    
+    const success = await bookingStore.createRecurring({
+      listing_id: listing.value!.id,
+      time: bookingForm.value.time,
+      weekdays: recurringForm.value.weekdays,
+      weeks: recurringForm.value.weeks
+    });
+    
+    if (success) {
+      bookingModalVisible.value = false;
+      ElMessage.success(`Создано ${success.length} занятий`);
+    }
+  } else {
+    // Разовое занятие
+    if (!bookingForm.value.date) {
+      ElMessage.warning('Выберите дату');
+      bookingLoading.value = false;
+      return;
+    }
+    
+    const available = await bookingStore.checkAvailability(
+      listing.value!.id,
+      bookingForm.value.date,
+      bookingForm.value.time
+    );
+    
+    if (!available) {
+      ElMessage.error('Это время уже занято');
+      bookingLoading.value = false;
+      return;
+    }
+    
+    const success = await bookingStore.createBooking({
+      listing_id: listing.value!.id,
+      date: bookingForm.value.date,
+      time: bookingForm.value.time
+    });
+    
+    if (success) {
+      bookingModalVisible.value = false;
+      ElMessage.success('Заявка отправлена! Ожидайте подтверждения');
+    }
   }
-  
-  // Создаем заявку
-  const success = await bookingStore.createBooking({
-    listing_id: listing.value!.id,
-    date: bookingForm.value.date,
-    time: bookingForm.value.time
-  });
   
   bookingLoading.value = false;
-  
-  if (success) {
-    bookingModalVisible.value = false;
-  }
 }
 </script>
 

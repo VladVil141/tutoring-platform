@@ -1,4 +1,4 @@
-import { IsInt, IsDateString, IsString, Matches } from 'class-validator';
+import { IsInt, IsDateString, IsString, Matches, IsOptional } from 'class-validator';
 
 export class CreateBookingDto {
   @IsInt()
@@ -12,4 +12,13 @@ export class CreateBookingDto {
     message: 'Время должно быть в формате HH:MM',
   })
   time: string;
+
+  // Опциональные поля для регулярных занятий
+  @IsOptional()
+  @IsString()
+  recurring_pattern?: string;
+
+  @IsOptional()
+  @IsDateString()
+  recurring_end?: string;
 }

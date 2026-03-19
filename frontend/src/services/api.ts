@@ -112,6 +112,15 @@ export const bookingService = {
   // Проверить доступность
   checkAvailability: (listingId: number, date: string, time: string) => 
     api.get('/bookings/check-availability', { params: { listing_id: listingId, date, time } }),
+
+  // Создать регулярные занятия
+  createRecurring: (data: any) => api.post('/bookings/recurring', data),
+  
+  // Получить серию занятий
+  getRecurring: (recurringId: string) => api.get(`/bookings/recurring/${recurringId}`),
+  
+  // Отменить серию
+  cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
 };
 
 export default api;

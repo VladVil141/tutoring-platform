@@ -48,6 +48,19 @@ export class Booking {
   })
   status: BookingStatus;
 
+  // Новые поля для регулярных занятий
+  @Column({ nullable: true })
+  recurring_id: string;  // UUID для группы занятий
+
+  @Column({ nullable: true })
+  recurring_pattern: string;  // например "ПН,СР,ПТ"
+
+  @Column({ nullable: true, type: 'date' })
+  recurring_end: string;  // дата окончания серии
+
+  @Column({ nullable: true })
+  parent_booking_id: number;  // для дочерних занятий
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

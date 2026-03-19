@@ -12,6 +12,9 @@ export interface Booking {
   time: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   created_at: string;
+  recurring_id?: string;
+  recurring_pattern?: string;
+  recurring_end?: string;
   listing?: {
     id: number;
     subject: string;
@@ -37,9 +40,10 @@ export const useBookingStore = defineStore('booking', () => {
   const myBookings = ref<Booking[]>([]);
   const tutorBookings = ref<Booking[]>([]);
   const currentBooking = ref<Booking | null>(null);
+  const currentRecurring = ref<Booking[]>([]);
   const loading = ref(false);
 
-  // Создать заявку
+  // Существующие методы
   async function createBooking(data: any) {
     try {
       loading.value = true;
@@ -54,7 +58,21 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить мои заявки (ученик)
+  // 👇 НОВЫЙ МЕТОД для регулярных занятий
+  async function createRecurring(data: any) {
+    try {
+      loading.value = true;
+      const response = await bookingService.createRecurring(data);
+      ElMessage.success(`Создано ${response.data.length} занятий`);
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error(error.response?.data?.message || 'Ошибка создания расписания');
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function fetchMyBookings(params?: any) {
     try {
       loading.value = true;
@@ -69,7 +87,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить заявки ко мне (репетитор)
   async function fetchTutorBookings(params?: any) {
     try {
       loading.value = true;
@@ -84,13 +101,39 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Подтвердить заявку
+  async function fetchRecurring(recurringId: string) {
+    try {
+      loading.value = true;
+      const response = await bookingService.getRecurring(recurringId);
+      currentRecurring.value = response.data;
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error('Ошибка загрузки серии');
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function cancelRecurring(recurringId: string) {
+    try {
+      loading.value = true;
+      await bookingService.cancelRecurring(recurringId);
+      ElMessage.success('Серия отменена');
+      return true;
+    } catch (error: any) {
+      ElMessage.error(error.response?.data?.message || 'Ошибка отмены');
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function confirmBooking(id: number) {
     try {
       loading.value = true;
       const response = await bookingService.confirm(id);
       
-      // Обновляем в списках
       const index = tutorBookings.value.findIndex(b => b.id === id);
       if (index !== -1) tutorBookings.value[index] = response.data;
       
@@ -104,13 +147,11 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Отменить заявку
   async function cancelBooking(id: number, role: 'student' | 'tutor') {
     try {
       loading.value = true;
       const response = await bookingService.cancel(id);
       
-      // Обновляем в нужном списке
       if (role === 'student') {
         const index = myBookings.value.findIndex(b => b.id === id);
         if (index !== -1) myBookings.value[index] = response.data;
@@ -129,7 +170,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Отметить как выполненное
   async function completeBooking(id: number) {
     try {
       loading.value = true;
@@ -148,7 +188,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Проверить доступность
   async function checkAvailability(listingId: number, date: string, time: string) {
     try {
       const response = await bookingService.checkAvailability(listingId, date, time);
@@ -162,10 +201,14 @@ export const useBookingStore = defineStore('booking', () => {
     myBookings,
     tutorBookings,
     currentBooking,
+    currentRecurring,
     loading,
     createBooking,
+    createRecurring,
     fetchMyBookings,
     fetchTutorBookings,
+    fetchRecurring,
+    cancelRecurring,
     confirmBooking,
     cancelBooking,
     completeBooking,
