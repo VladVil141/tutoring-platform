@@ -3,7 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { ListingsModule } from './listings/listings.module'; // <-- добавить
+import { ListingsModule } from './listings/listings.module';
+import { BookingsModule } from './bookings/bookings.module'; // <-- добавить
 
 @Module({
   imports: [
@@ -27,9 +28,8 @@ import { ListingsModule } from './listings/listings.module'; // <-- добави
     }),
     AuthModule,
     UsersModule,
-    ListingsModule, // <-- добавить
+    ListingsModule,
+    BookingsModule, // <-- добавить
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}

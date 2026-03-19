@@ -110,4 +110,18 @@ export class ListingsService {
     listing.is_active = false;
     await this.listingRepository.save(listing);
   }
+
+  async getListingTutorId(id: number): Promise<{ tutor_id: number }> {
+    const result = await this.listingRepository
+      .createQueryBuilder('listing')
+      .select('listing.tutor_id')
+      .where('listing.id = :id', { id })
+      .getRawOne();
+
+    if (!result) {
+      throw new NotFoundException('Объявление не найдено');
+    }
+
+    return { tutor_id: result.tutor_id };
+  }
 }

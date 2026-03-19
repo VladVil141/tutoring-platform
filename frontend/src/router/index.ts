@@ -31,7 +31,7 @@ const router = createRouter({
       component: () => import('../views/CabinetView.vue'),
       meta: { requiresAuth: true },
     },
-    // Новые маршруты для объявлений
+    // Индивидуальные объявления
     {
       path: '/listings/new',
       name: 'new-listing',
@@ -49,7 +49,7 @@ const router = createRouter({
       name: 'listing-detail',
       component: () => import('../views/ListingDetailView.vue'),
     },
-    // 👇 Групповые маршруты
+    // Групповые объявления
     {
       path: '/group-listings/new',
       name: 'new-group-listing',
@@ -67,10 +67,24 @@ const router = createRouter({
       name: 'group-listing-detail',
       component: () => import('../views/GroupListingDetailView.vue'),
     },
+    // Каталог
     {
       path: '/catalog',
       name: 'catalog',
       component: () => import('../views/CatalogView.vue'),
+    },
+    // 👇 НОВЫЕ МАРШРУТЫ ДЛЯ ЗАЯВОК
+    {
+      path: '/my-bookings',
+      name: 'my-bookings',
+      component: () => import('../views/StudentBookingsView.vue'),
+      meta: { requiresAuth: true, requiresStudent: true },
+    },
+    {
+      path: '/tutor-bookings',
+      name: 'tutor-bookings',
+      component: () => import('../views/TutorBookingsView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
     },
   ],
 })
@@ -82,6 +96,12 @@ router.beforeEach((to, from, next) => {
   // Проверка авторизации
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
+    return
+  }
+  
+  // Проверка роли ученика
+  if (to.meta.requiresStudent && !authStore.isStudent) {
+    next('/')
     return
   }
   

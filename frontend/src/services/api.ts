@@ -87,4 +87,31 @@ export const groupListingService = {
   delete: (id: number) => api.delete(`/group-listings/${id}`),
 };
 
+export const bookingService = {
+  // Создать заявку
+  create: (data: any) => api.post('/bookings', data),
+  
+  // Мои заявки (ученик)
+  getMyBookings: (params?: any) => api.get('/bookings/my', { params }),
+  
+  // Заявки ко мне (репетитор)
+  getTutorBookings: (params?: any) => api.get('/bookings/tutor', { params }),
+  
+  // Получить одну заявку
+  getOne: (id: number) => api.get(`/bookings/${id}`),
+  
+  // Подтвердить заявку
+  confirm: (id: number) => api.put(`/bookings/${id}/confirm`),
+  
+  // Отменить заявку
+  cancel: (id: number) => api.put(`/bookings/${id}/cancel`),
+  
+  // Отметить как выполненное
+  complete: (id: number) => api.put(`/bookings/${id}/complete`),
+  
+  // Проверить доступность
+  checkAvailability: (listingId: number, date: string, time: string) => 
+    api.get('/bookings/check-availability', { params: { listing_id: listingId, date, time } }),
+};
+
 export default api;

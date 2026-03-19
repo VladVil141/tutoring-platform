@@ -86,22 +86,24 @@
             </div>
           </div>
 
-          <!-- Кнопка записи (для Этапа 3) -->
+          <!-- Кнопки действий -->
           <el-divider />
 
           <div class="action-buttons">
+            <!-- Кнопка записи для учеников -->
             <el-button 
+              v-if="!isOwner && authStore.isStudent"
               type="primary" 
               size="large" 
-              @click="bookLesson"
-              :disabled="!authStore.isAuthenticated || authStore.isTutor"
+              @click="openBookingModal"
             >
-              {{ getBookingButtonText() }}
+              Записаться на занятие
             </el-button>
             
+            <!-- Кнопки для владельца (репетитора) -->
             <el-button 
               v-if="isOwner"
-              type="warning" 
+              type="primary" 
               size="large" 
               @click="editListing"
             >
@@ -116,12 +118,63 @@
             >
               Удалить
             </el-button>
+            
+            <!-- Подсказка для неавторизованных -->
+            <el-button 
+              v-if="!authStore.isAuthenticated"
+              type="info" 
+              size="large" 
+              @click="goToLogin"
+            >
+              Войдите, чтобы записаться
+            </el-button>
           </div>
         </div>
       </el-card>
 
       <el-empty v-else-if="!loading" description="Объявление не найдено" />
     </div>
+
+    <!-- Модальное окно записи -->
+    <el-dialog v-model="bookingModalVisible" title="Запись на занятие" width="400px">
+      <el-form :model="bookingForm" label-width="100px">
+        <el-form-item label="Дата">
+          <el-date-picker 
+            v-model="bookingForm.date" 
+            type="date" 
+            placeholder="Выберите дату"
+            format="DD.MM.YYYY"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disabledDate"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        
+        <el-form-item label="Время">
+          <el-time-select
+            v-model="bookingForm.time"
+            start="08:00"
+            step="00:30"
+            end="22:00"
+            placeholder="Выберите время"
+            style="width: 100%;"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="bookingModalVisible = false">Отмена</el-button>
+          <el-button 
+            type="primary" 
+            @click="submitBooking" 
+            :loading="bookingLoading"
+          >
+            Отправить заявку
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,6 +182,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useListingStore } from '../stores/listing';
+import { useBookingStore } from '../stores/booking';
 import { useAuthStore } from '../stores/auth';
 import { ArrowLeft, Location } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -136,14 +190,23 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 const route = useRoute();
 const router = useRouter();
 const listingStore = useListingStore();
+const bookingStore = useBookingStore();
 const authStore = useAuthStore();
 
 const loading = ref(false);
+const bookingModalVisible = ref(false);
+const bookingLoading = ref(false);
+
 const listing = computed(() => listingStore.currentListing);
 
 const isOwner = computed(() => {
   if (!authStore.user || !listing.value) return false;
   return authStore.user.id === listing.value.tutor_id;
+});
+
+const bookingForm = ref({
+  date: '',
+  time: ''
 });
 
 onMounted(async () => {
@@ -186,29 +249,8 @@ function goToTutorProfile() {
   }
 }
 
-function getBookingButtonText() {
-  if (!authStore.isAuthenticated) {
-    return 'Войдите, чтобы записаться';
-  }
-  if (authStore.isTutor) {
-    return 'Вы репетитор';
-  }
-  return 'Записаться на занятие';
-}
-
-function bookLesson() {
-  if (!authStore.isAuthenticated) {
-    router.push('/login');
-    return;
-  }
-  
-  if (authStore.isTutor) {
-    ElMessage.info('Репетиторы не могут записываться на занятия');
-    return;
-  }
-  
-  // TODO: Этап 3 - создание заявки
-  ElMessage.info('Функция записи будет доступна в Этапе 3');
+function goToLogin() {
+  router.push('/login');
 }
 
 function editListing() {
@@ -233,6 +275,53 @@ async function deleteListing() {
     }
   } catch (error) {
     // Пользователь отменил удаление
+  }
+}
+
+// Запрет на прошедшие даты
+function disabledDate(time: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return time.getTime() < today.getTime();
+}
+
+function openBookingModal() {
+  bookingForm.value = { date: '', time: '' };
+  bookingModalVisible.value = true;
+}
+
+async function submitBooking() {
+  if (!bookingForm.value.date || !bookingForm.value.time) {
+    ElMessage.warning('Выберите дату и время');
+    return;
+  }
+  
+  bookingLoading.value = true;
+  
+  // Проверяем доступность
+  const available = await bookingStore.checkAvailability(
+    listing.value!.id,
+    bookingForm.value.date,
+    bookingForm.value.time
+  );
+  
+  if (!available) {
+    ElMessage.error('Это время уже занято');
+    bookingLoading.value = false;
+    return;
+  }
+  
+  // Создаем заявку
+  const success = await bookingStore.createBooking({
+    listing_id: listing.value!.id,
+    date: bookingForm.value.date,
+    time: bookingForm.value.time
+  });
+  
+  bookingLoading.value = false;
+  
+  if (success) {
+    bookingModalVisible.value = false;
   }
 }
 </script>

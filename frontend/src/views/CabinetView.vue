@@ -182,30 +182,22 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Вкладка для репетитора: Заявки ко мне (Этап 4) -->
-      <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="requests">
-        <el-card>
-          <template #header>
-            <h2>Заявки на занятия</h2>
-          </template>
-          <el-empty description="Функция будет доступна в Этапе 4" />
-        </el-card>
+      <!-- Вкладка для репетитора: Заявки ко мне -->
+      <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="tutor-bookings">
+        <TutorBookingsView />
       </el-tab-pane>
 
-      <!-- Вкладка для ученика: Мои заявки (Этап 4) -->
-      <el-tab-pane v-if="authStore.isStudent" label="Мои заявки" name="bookings">
-        <el-card>
-          <template #header>
-            <h2>Мои заявки</h2>
-          </template>
-          <el-empty description="Функция будет доступна в Этапе 4" />
-        </el-card>
+      <!-- Вкладка для ученика: Мои заявки -->
+      <el-tab-pane v-if="authStore.isStudent" label="Мои заявки" name="my-bookings">
+        <StudentBookingsView />
       </el-tab-pane>
     </el-tabs>
   </div>
 </template>
 
 <script setup lang="ts">
+import StudentBookingsView from './StudentBookingsView.vue';
+import TutorBookingsView from './TutorBookingsView.vue';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
@@ -269,6 +261,12 @@ const handleTabChange = (tab: string) => {
   if (tab === 'listings' && authStore.isTutor) {
     loadMyListings();
   }
+  if (tab === 'my-bookings' && authStore.isStudent) {
+    // Данные загрузятся в компоненте StudentBookingsView
+  }
+  if (tab === 'tutor-bookings' && authStore.isTutor) {
+    // Данные загрузятся в компоненте TutorBookingsView
+  }
 };
 
 // Загружаем данные при монтировании
@@ -281,12 +279,15 @@ onMounted(async () => {
   await authStore.fetchProfile();
   updateEditForm();
   
-  // Если в URL есть параметр tab=listings, переключаемся
   if (route.query.tab === 'listings') {
     activeTab.value = 'listings';
     if (authStore.isTutor) {
       await loadMyListings();
     }
+  } else if (route.query.tab === 'my-bookings') {
+    activeTab.value = 'my-bookings';
+  } else if (route.query.tab === 'tutor-bookings') {
+    activeTab.value = 'tutor-bookings';
   }
 });
 
