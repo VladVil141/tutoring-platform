@@ -123,4 +123,30 @@ export const bookingService = {
   cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
 };
 
+export const groupBookingService = {
+  // Создать заявку в группу
+  create: (data: any) => api.post('/group-bookings', data),
+  
+  // Мои заявки в группы (ученик)
+  getMyBookings: (params?: any) => api.get('/group-bookings/my', { params }),
+  
+  // Заявки ко мне (репетитор)
+  getTutorBookings: (params?: any) => api.get('/group-bookings/tutor', { params }),
+  
+  // Получить одну заявку
+  getOne: (id: number) => api.get(`/group-bookings/${id}`),
+  
+  // Одобрить заявку
+  approve: (id: number) => api.put(`/group-bookings/${id}/approve`),
+  
+  // Отклонить заявку
+  reject: (id: number) => api.put(`/group-bookings/${id}/reject`),
+  
+  // Отменить свою заявку
+  cancel: (id: number) => api.delete(`/group-bookings/${id}`),
+  
+  // Выйти из группы
+  leaveGroup: (groupListingId: number) => api.delete(`/group-bookings/group/${groupListingId}/leave`),
+};
+
 export default api;

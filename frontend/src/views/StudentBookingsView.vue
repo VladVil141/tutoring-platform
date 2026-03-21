@@ -102,46 +102,97 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="Действия" fixed="right" align="right" width="250">
-  <template #default="{ row }">
-    <div style="display: flex; gap: 8px; justify-content: flex-end;">
-      <el-button 
-        v-if="row.status === 'pending'"
-        size="small" 
-        type="danger" 
-        @click="cancelBooking(row.id)"
-        style="padding: 5px 15px;"
-      >
-        Отменить
-      </el-button>
-      <template v-else-if="row.status === 'confirmed'">
-        <el-button 
-          size="small" 
-          type="warning" 
-          @click="contactTutor(row)"
-          style="padding: 5px 15px;"
-        >
-          Связаться
-        </el-button>
-        <el-button 
-          size="small" 
-          type="primary" 
-          @click="rescheduleBooking(row)"
-          style="padding: 5px 15px;"
-          :disabled="true"
-          title="Функция будет доступна в Этапе 8"
-        >
-          Перенести
-        </el-button>
-      </template>
-      <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
-    </div>
-  </template>
-</el-table-column>
+        <el-table-column label="Действия" fixed="right" align="right" width="240">
+          <template #default="{ row }">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <el-button 
+                v-if="row.status === 'pending'"
+                size="small" 
+                type="danger" 
+                @click="cancelBooking(row.id)"
+                style="padding: 5px 15px;"
+              >
+                Отменить
+              </el-button>
+              <template v-else-if="row.status === 'confirmed'">
+                <el-button 
+                  size="small" 
+                  type="warning" 
+                  @click="contactTutor(row)"
+                  style="padding: 5px 15px;"
+                >
+                  Связаться
+                </el-button>
+                <el-button 
+                  size="small" 
+                  type="primary" 
+                  @click="rescheduleBooking(row)"
+                  style="padding: 5px 15px;"
+                >
+                  Перенести
+                </el-button>
+              </template>
+              <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
 
+      <!-- Групповые заявки -->
+      <div v-if="groupBookings.length" class="group-bookings-section">
+        <h3>Групповые заявки</h3>
+        <el-table :data="groupBookings" style="width: 100%" v-loading="groupLoading">
+          <el-table-column prop="group_listing.subject" label="Предмет" min-width="150" />
+          <el-table-column label="Расписание" min-width="150">
+            <template #default="{ row }">
+              {{ row.group_listing?.schedule }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Репетитор" min-width="200">
+            <template #default="{ row }">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <el-avatar :size="30" :src="row.group_listing?.tutor?.profile?.avatar_url">
+                  {{ row.group_listing?.tutor?.profile?.first_name?.charAt(0) }}
+                </el-avatar>
+                <span>{{ row.group_listing?.tutor?.profile?.first_name }} {{ row.group_listing?.tutor?.profile?.last_name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Статус" width="130" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getGroupStatusType(row.status)" size="small">
+                {{ getGroupStatusText(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Действия" width="150" fixed="right" align="right">
+            <template #default="{ row }">
+              <el-button 
+                v-if="row.status === 'pending'"
+                size="small" 
+                type="danger" 
+                @click="cancelGroupBooking(row.id)"
+                style="padding: 5px 15px;"
+              >
+                Отменить
+              </el-button>
+              <el-button 
+                v-else-if="row.status === 'approved'"
+                size="small" 
+                type="warning" 
+                @click="leaveGroup(row.group_listing_id)"
+                style="padding: 5px 15px;"
+              >
+                Выйти
+              </el-button>
+              <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
       <el-empty 
-        v-if="!filteredSingleBookings.length && !filteredRecurringGroups.length && !loading" 
+        v-if="!filteredSingleBookings.length && !filteredRecurringGroups.length && !groupBookings.length && !loading && !groupLoading" 
         description="У вас пока нет заявок" 
       />
     </el-card>
@@ -178,33 +229,21 @@
           </template>
         </el-table-column>
         <el-table-column label="Действия" fixed="right" align="right" width="180">
-  <template #default="{ row }">
-    <div style="display: flex; gap: 8px; justify-content: flex-end;">
-      <el-button 
-        v-if="row.status === 'pending'"
-        size="small" 
-        type="danger" 
-        @click="cancelBooking(row.id)"
-        style="padding: 5px 15px;"
-      >
-        Отменить
-      </el-button>
-      <template v-else-if="row.status === 'confirmed'">
-        <el-button 
-          size="small" 
-          type="primary" 
-          @click="rescheduleBooking(row)"
-          :disabled="true"
-          style="padding: 5px 15px;"
-          title="Функция будет доступна в Этапе 8"
-        >
-          Перенести
-        </el-button>
-      </template>
-      <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
-    </div>
-  </template>
-</el-table-column>
+          <template #default="{ row }">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <el-button 
+                v-if="row.status === 'pending'"
+                size="small" 
+                type="danger" 
+                @click="cancelBooking(row.id)"
+                style="padding: 5px 15px;"
+              >
+                Отменить
+              </el-button>
+              <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
       <template #footer>
         <div class="dialog-footer">
@@ -219,16 +258,22 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useBookingStore } from '../stores/booking';
+import { useGroupBookingStore } from '../stores/groupBooking';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 const bookingStore = useBookingStore();
+const groupBookingStore = useGroupBookingStore();
 const loading = ref(false);
+const groupLoading = ref(false);
 const filterStatus = ref('');
 const seriesModalVisible = ref(false);
 const currentSeries = ref<any[]>([]);
 
-// Группировка по recurring_id
+// Групповые заявки
+const groupBookings = computed(() => groupBookingStore.myBookings);
+
+// Регулярные серии
 const recurringGroups = computed(() => {
   const groups: Record<string, any[]> = {};
   bookingStore.myBookings.forEach(booking => {
@@ -243,21 +288,20 @@ const recurringGroups = computed(() => {
   return Object.values(groups);
 });
 
-// Фильтрация регулярных серий по статусу
+// Фильтрация регулярных серий
 const filteredRecurringGroups = computed(() => {
   if (!filterStatus.value) return recurringGroups.value;
-  
-  return recurringGroups.value.filter(group => {
-    return group.some(booking => booking.status === filterStatus.value);
-  });
+  return recurringGroups.value.filter(group => 
+    group.some(booking => booking.status === filterStatus.value)
+  );
 });
 
-// Разовые заявки (без recurring_id)
+// Разовые заявки
 const singleBookings = computed(() => {
   return bookingStore.myBookings.filter(b => !b.recurring_id);
 });
 
-// Фильтрация разовых заявок по статусу
+// Фильтрация разовых заявок
 const filteredSingleBookings = computed(() => {
   if (!filterStatus.value) return singleBookings.value;
   return singleBookings.value.filter(b => b.status === filterStatus.value);
@@ -275,18 +319,11 @@ function getSeriesStatus(series: any[]) {
   if (allConfirmed) return { type: 'success', text: 'Подтверждено' };
   if (hasConfirmed && !hasPending) return { type: 'success', text: 'Подтверждено' };
   if (hasPending) return { type: 'warning', text: 'Ожидание' };
-  
   return { type: 'info', text: 'Смешанный' };
 }
 
 function canCancelSeries(series: any[]) {
-  // Можно отменить серию, если есть хотя бы одна заявка в статусе pending или confirmed
-  // Но не если все уже выполнены или отменены
-  const hasActive = series.some(b => b.status === 'pending' || b.status === 'confirmed');
-  const allCompleted = series.every(b => b.status === 'completed');
-  const allCancelled = series.every(b => b.status === 'cancelled');
-  
-  return hasActive && !allCompleted && !allCancelled;
+  return series.some(b => b.status === 'pending' || b.status === 'confirmed');
 }
 
 function showSeries(series: any[]) {
@@ -304,17 +341,10 @@ async function cancelSeries(recurringId: string) {
     
     await bookingStore.cancelRecurring(recurringId);
     await loadBookings();
-    
-    // Закрываем модальное окно после отмены серии
-    seriesModalVisible.value = false;
   } catch (error) {
     // Пользователь отменил действие
   }
 }
-
-onMounted(async () => {
-  await loadBookings();
-});
 
 async function loadBookings() {
   loading.value = true;
@@ -346,6 +376,24 @@ function getStatusText(status: string) {
   return map[status] || status;
 }
 
+function getGroupStatusType(status: string) {
+  const map: Record<string, string> = {
+    pending: 'warning',
+    approved: 'success',
+    rejected: 'danger'
+  };
+  return map[status] || 'info';
+}
+
+function getGroupStatusText(status: string) {
+  const map: Record<string, string> = {
+    pending: 'Ожидание',
+    approved: 'Принят',
+    rejected: 'Отклонен'
+  };
+  return map[status] || status;
+}
+
 async function cancelBooking(id: number) {
   try {
     await ElMessageBox.confirm('Отменить эту заявку?', 'Подтверждение', {
@@ -355,26 +403,54 @@ async function cancelBooking(id: number) {
     });
     
     await bookingStore.cancelBooking(id, 'student');
-    await loadBookings(); // перезагружаем основной список
-    
-    // Обновляем текущую серию в модальном окне (если открыто)
-    if (currentSeries.value.length > 0) {
-      const recurringId = currentSeries.value[0].recurring_id;
-      const updatedSeries = await bookingStore.fetchRecurring(recurringId);
-      currentSeries.value = updatedSeries;
-    }
+    await loadBookings();
   } catch (error) {
     // Пользователь отменил действие
   }
+}
+
+async function cancelGroupBooking(id: number) {
+  try {
+    await ElMessageBox.confirm('Отменить заявку?', 'Подтверждение', {
+      confirmButtonText: 'Да',
+      cancelButtonText: 'Нет',
+      type: 'warning'
+    });
+    
+    await groupBookingStore.cancelBooking(id);
+    await groupBookingStore.fetchMyBookings();
+  } catch (error) {
+    // Пользователь отменил действие
+  }
+}
+
+async function leaveGroup(groupListingId: number) {
+  try {
+    await ElMessageBox.confirm('Выйти из группы?', 'Подтверждение', {
+      confirmButtonText: 'Да',
+      cancelButtonText: 'Нет',
+      type: 'warning'
+    });
+    
+    await groupBookingStore.leaveGroup(groupListingId);
+    await groupBookingStore.fetchMyBookings();
+  } catch (error) {
+    // Пользователь отменил действие
+  }
+}
+
+function contactTutor(row: any) {
+  ElMessage.info('Функция связи будет доступна в Этапе 9');
 }
 
 function rescheduleBooking(row: any) {
   ElMessage.info('Функция переноса будет доступна в Этапе 8');
 }
 
-function contactTutor(row: any) {
-  ElMessage.info('Функция связи будет доступна позже');
-}
+onMounted(async () => {
+  await loadBookings();
+  await groupBookingStore.fetchMyBookings();
+});
 </script>
 
 <style scoped>
@@ -401,7 +477,8 @@ function contactTutor(row: any) {
   margin-bottom: 30px;
 }
 
-.recurring-section h3 {
+.recurring-section h3,
+.group-bookings-section h3 {
   margin-bottom: 15px;
   color: #2c3e50;
   font-size: 18px;
@@ -417,6 +494,10 @@ function contactTutor(row: any) {
   margin-bottom: 20px;
   background-color: #f9f9f9;
   border-radius: 8px;
+}
+
+.group-bookings-section {
+  margin-top: 30px;
 }
 
 :deep(.el-table) {
@@ -450,7 +531,6 @@ function contactTutor(row: any) {
   gap: 10px;
 }
 
-/* Убираем пустое пространство справа */
 :deep(.el-table__inner-wrapper) {
   width: 100%;
 }

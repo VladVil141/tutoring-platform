@@ -196,13 +196,15 @@
 </template>
 
 <script setup lang="ts">
-import StudentBookingsView from './StudentBookingsView.vue';
-import TutorBookingsView from './TutorBookingsView.vue';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useListingStore } from '../stores/listing';
 import { useGroupListingStore } from '../stores/groupListing';
+import { useBookingStore } from '../stores/booking';           // 👈 добавить
+import { useGroupBookingStore } from '../stores/groupBooking'; // 👈 добавить
+import StudentBookingsView from './StudentBookingsView.vue';
+import TutorBookingsView from './TutorBookingsView.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
@@ -210,6 +212,8 @@ const route = useRoute();
 const authStore = useAuthStore();
 const listingStore = useListingStore();
 const groupStore = useGroupListingStore();
+const bookingStore = useBookingStore();           // 👈 добавить
+const groupBookingStore = useGroupBookingStore(); // 👈 добавить
 
 const activeTab = ref('profile');
 const editMode = ref(false);
@@ -257,15 +261,17 @@ async function loadMyListings() {
 }
 
 // Следим за изменением таба
-const handleTabChange = (tab: string) => {
+const handleTabChange = async (tab: string) => {
   if (tab === 'listings' && authStore.isTutor) {
-    loadMyListings();
+    await loadMyListings();
   }
   if (tab === 'my-bookings' && authStore.isStudent) {
-    // Данные загрузятся в компоненте StudentBookingsView
+    await bookingStore.fetchMyBookings();
+    await groupBookingStore.fetchMyBookings();
   }
   if (tab === 'tutor-bookings' && authStore.isTutor) {
-    // Данные загрузятся в компоненте TutorBookingsView
+    await bookingStore.fetchTutorBookings();
+    await groupBookingStore.fetchTutorBookings();
   }
 };
 

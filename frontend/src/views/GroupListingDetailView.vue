@@ -111,48 +111,41 @@
             </div>
           </div>
 
-          <!-- Кнопка подачи заявки -->
-          <el-divider />
+<!-- Кнопка подачи заявки -->
+<el-divider />
 
-          <div class="action-buttons">
-            <el-button 
-              v-if="!hasApplied"
-              type="warning" 
-              size="large" 
-              @click="applyToGroup"
-              :disabled="!canApply || !authStore.isAuthenticated || authStore.isTutor"
-              :loading="applying"
-            >
-              {{ getApplyButtonText() }}
-            </el-button>
-            
-            <el-button 
-              v-else
-              type="info" 
-              size="large" 
-              disabled
-            >
-              ✅ Заявка отправлена
-            </el-button>
-            
-            <el-button 
-              v-if="isOwner"
-              type="primary" 
-              size="large" 
-              @click="editListing"
-            >
-              Редактировать
-            </el-button>
-            
-            <el-button 
-              v-if="isOwner"
-              type="danger" 
-              size="large" 
-              @click="deleteListing"
-            >
-              Удалить
-            </el-button>
-          </div>
+<div class="action-buttons">
+  <!-- Для учеников, если группа не заполнена -->
+  <el-button 
+    v-if="!isOwner && authStore.isStudent && listing.is_active"
+    type="warning" 
+    size="large" 
+    @click="applyToGroup" 
+    :loading="applying"
+    :disabled="hasApplied || isInGroup"
+  >
+    {{ getApplyButtonText() }}
+  </el-button>
+  
+  <!-- Для владельца (репетитора) -->
+  <el-button 
+    v-if="isOwner"
+    type="primary" 
+    size="large" 
+    @click="editListing"
+  >
+    Редактировать
+  </el-button>
+  
+  <el-button 
+    v-if="isOwner"
+    type="danger" 
+    size="large" 
+    @click="deleteListing"
+  >
+    Удалить
+  </el-button>
+</div>
         </div>
       </el-card>
 
@@ -168,12 +161,15 @@ import { useGroupListingStore } from '../stores/groupListing';
 import { useAuthStore } from '../stores/auth';
 import { ArrowLeft, Location, Calendar } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useGroupBookingStore } from '../stores/groupBooking';
 
 const route = useRoute();
 const router = useRouter();
 const groupStore = useGroupListingStore();
 const authStore = useAuthStore();
 
+const groupBookingStore = useGroupBookingStore();
+const isInGroup = ref(false);
 const loading = ref(false);
 const applying = ref(false);
 const hasApplied = ref(false); // TODO: проверить из заявок
@@ -190,9 +186,28 @@ const canApply = computed(() => {
   return listing.value.current_students < listing.value.max_students;
 });
 
+// Проверяем статус заявки при загрузке
 onMounted(async () => {
   await loadListing();
+  await checkBookingStatus();
 });
+
+async function checkBookingStatus() {
+  if (!authStore.isAuthenticated || !authStore.isStudent) return;
+  
+  await groupBookingStore.fetchMyBookings();
+  const existing = groupBookingStore.myBookings.find(
+    b => b.group_listing_id === listing.value?.id
+  );
+  
+  if (existing) {
+    if (existing.status === 'pending') {
+      hasApplied.value = true;
+    } else if (existing.status === 'approved') {
+      isInGroup.value = true;
+    }
+  }
+}
 
 async function loadListing() {
   const id = Number(route.params.id);
@@ -237,8 +252,14 @@ function getApplyButtonText() {
   if (authStore.isTutor) {
     return 'Вы репетитор';
   }
-  if (!canApply.value) {
+  if (!listing.value?.is_active) {
     return 'Группа заполнена';
+  }
+  if (hasApplied.value) {
+    return 'Заявка уже подана';
+  }
+  if (isInGroup.value) {
+    return 'Вы уже в группе';
   }
   return 'Подать заявку в группу';
 }
@@ -254,19 +275,19 @@ async function applyToGroup() {
     return;
   }
   
-  if (!canApply.value) {
+  if (!listing.value?.is_active) {
     ElMessage.warning('Группа уже заполнена');
     return;
   }
   
   applying.value = true;
+  const success = await groupBookingStore.createBooking(listing.value!.id);
+  applying.value = false;
   
-  // TODO: Этап 6 - создание групповой заявки
-  setTimeout(() => {
-    ElMessage.success('Заявка отправлена! Ожидайте подтверждения репетитора');
+  if (success) {
     hasApplied.value = true;
-    applying.value = false;
-  }, 1000);
+    ElMessage.success('Заявка отправлена! Ожидайте подтверждения');
+  }
 }
 
 function editListing() {
