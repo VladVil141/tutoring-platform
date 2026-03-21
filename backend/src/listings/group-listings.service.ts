@@ -110,11 +110,13 @@ export class GroupListingsService {
     await this.groupListingRepository.save(listing);
   }
 
-  async incrementStudents(id: number): Promise<void> {
-    await this.groupListingRepository.increment({ id }, 'current_students', 1);
+  // Обновить количество учеников
+  async updateCurrentStudents(id: number, currentStudents: number): Promise<void> {
+    await this.groupListingRepository.update(id, { current_students: currentStudents });
   }
 
-  async decrementStudents(id: number): Promise<void> {
-    await this.groupListingRepository.decrement({ id }, 'current_students', 1);
+  // Обновить статус активности
+  async updateActiveStatus(id: number, isActive: boolean): Promise<void> {
+    await this.groupListingRepository.update(id, { is_active: isActive });
   }
 }

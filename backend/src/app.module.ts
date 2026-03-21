@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ListingsModule } from './listings/listings.module';
-import { BookingsModule } from './bookings/bookings.module'; // <-- добавить
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
@@ -29,7 +29,7 @@ import { BookingsModule } from './bookings/bookings.module'; // <-- добави
     AuthModule,
     UsersModule,
     ListingsModule,
-    BookingsModule, // <-- добавить
+    BookingsModule,
   ],
 })
 export class AppModule {}
