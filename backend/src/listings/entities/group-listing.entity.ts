@@ -73,6 +73,9 @@ export class GroupListing {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
   updated_at: Date;
 
+  @Column({ nullable: true, type: 'date' })
+  recurring_end: string;
+
   @Column({ type: 'timestamp', nullable: true })
   deleted_at: Date | null;
 }

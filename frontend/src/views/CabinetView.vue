@@ -182,14 +182,14 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Вкладка для репетитора: Заявки ко мне -->
-      <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="tutor-bookings">
-        <TutorBookingsView />
-      </el-tab-pane>
-
       <!-- Вкладка для ученика: Мои заявки -->
       <el-tab-pane v-if="authStore.isStudent" label="Мои заявки" name="my-bookings">
         <StudentBookingsView />
+      </el-tab-pane>
+
+      <!-- Вкладка для репетитора: Заявки ко мне -->
+      <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="tutor-bookings">
+        <TutorBookingsView />
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -201,8 +201,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useListingStore } from '../stores/listing';
 import { useGroupListingStore } from '../stores/groupListing';
-import { useBookingStore } from '../stores/booking';           // 👈 добавить
-import { useGroupBookingStore } from '../stores/groupBooking'; // 👈 добавить
+import { useBookingStore } from '../stores/booking';
+import { useGroupBookingStore } from '../stores/groupBooking';
 import StudentBookingsView from './StudentBookingsView.vue';
 import TutorBookingsView from './TutorBookingsView.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -212,8 +212,8 @@ const route = useRoute();
 const authStore = useAuthStore();
 const listingStore = useListingStore();
 const groupStore = useGroupListingStore();
-const bookingStore = useBookingStore();           // 👈 добавить
-const groupBookingStore = useGroupBookingStore(); // 👈 добавить
+const bookingStore = useBookingStore();
+const groupBookingStore = useGroupBookingStore();
 
 const activeTab = ref('profile');
 const editMode = ref(false);
@@ -262,6 +262,9 @@ async function loadMyListings() {
 
 // Следим за изменением таба
 const handleTabChange = async (tab: string) => {
+  // Сохраняем вкладку в URL
+  router.replace({ query: { ...route.query, tab } });
+  
   if (tab === 'listings' && authStore.isTutor) {
     await loadMyListings();
   }
@@ -285,6 +288,7 @@ onMounted(async () => {
   await authStore.fetchProfile();
   updateEditForm();
   
+  // Если в URL есть параметр tab, переключаемся на него
   if (route.query.tab === 'listings') {
     activeTab.value = 'listings';
     if (authStore.isTutor) {
@@ -341,7 +345,6 @@ function formatFormat(format: string) {
   return map[format] || format;
 }
 
-// Удаление объявления с определением типа
 async function handleDelete(row: any) {
   try {
     await ElMessageBox.confirm('Вы уверены, что хотите удалить это объявление?', 'Подтверждение', {

@@ -329,6 +329,7 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
   // Определяем диапазон дат
   let startDate: Date, endDate: Date;
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   
   if (query.start_date && query.end_date) {
     startDate = new Date(query.start_date);
@@ -351,17 +352,19 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
   const endStr = endDate.toISOString().split('T')[0];
   
   if (role === 'student') {
-    // Индивидуальные занятия ученика
+    // Индивидуальные занятия ученика (только подтвержденные и выполненные)
     const individualBookings = await this.bookingRepository.find({
       where: {
         student_id: userId,
         date: Between(startStr, endStr),
-        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+        status: In([BookingStatus.CONFIRMED, BookingStatus.COMPLETED]) // 👈 только confirmed и completed
       },
       relations: ['listing', 'listing.tutor', 'listing.tutor.profile']
     });
     
     for (const booking of individualBookings) {
+      if (!booking.listing) continue;
+      
       events.push({
         id: booking.id,
         type: 'individual',
@@ -374,20 +377,34 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
       });
     }
     
-    // Групповые занятия ученика
+    // Групповые занятия ученика (только approved)
     const groupBookings = await this.groupBookingRepository.find({
       where: {
         student_id: userId,
-        status: GroupBookingStatus.APPROVED
+        status: GroupBookingStatus.APPROVED  // 👈 только approved
       },
       relations: ['group_listing', 'group_listing.tutor', 'group_listing.tutor.profile']
     });
     
     for (const gb of groupBookings) {
+      if (!gb.group_listing) continue;
+      
       const schedule = gb.group_listing.schedule;
+      const weeks = gb.group_listing.weeks || 4;
+      
+      // Генерируем даты ТОЛЬКО в пределах startDate-endDate
       const dates = this.generateDatesFromSchedule(schedule, startDate, endDate);
       
+      // Фильтруем даты, которые не выходят за пределы recurring_end
+      const recurringEnd = gb.group_listing.recurring_end;
+      
       for (const date of dates) {
+        // Пропускаем прошедшие даты
+        if (new Date(date) < today) continue;
+        
+        // Пропускаем даты после окончания курса
+        if (recurringEnd && new Date(date) > new Date(recurringEnd)) continue;
+        
         events.push({
           id: gb.id,
           type: 'group',
@@ -403,17 +420,19 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
       }
     }
   } else if (role === 'tutor') {
-    // Индивидуальные занятия репетитора
+    // Индивидуальные занятия репетитора (только подтвержденные и выполненные)
     const individualBookings = await this.bookingRepository.find({
       where: {
         tutor_id: userId,
         date: Between(startStr, endStr),
-        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+        status: In([BookingStatus.CONFIRMED, BookingStatus.COMPLETED])  // 👈 только confirmed и completed
       },
       relations: ['student', 'student.profile', 'listing']
     });
     
     for (const booking of individualBookings) {
+      if (!booking.listing) continue;
+      
       events.push({
         id: booking.id,
         type: 'individual',
@@ -426,16 +445,23 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
       });
     }
     
-    // Групповые занятия репетитора
+    // Групповые занятия репетитора (все активные группы)
     const groupListings = await this.groupListingsService.findAll();
     
     for (const gl of groupListings) {
       if (gl.tutor_id !== userId) continue;
+      if (!gl.is_active) continue;
       
       const schedule = gl.schedule;
+      const weeks = gl.weeks || 4;
+      
+      // Генерируем даты ТОЛЬКО в пределах startDate-endDate
       const dates = this.generateDatesFromSchedule(schedule, startDate, endDate);
       
       for (const date of dates) {
+        // Пропускаем прошедшие даты
+        if (new Date(date) < today) continue;
+        
         events.push({
           id: gl.id,
           type: 'group',
@@ -458,30 +484,30 @@ async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promis
   });
 }
 
-// Вспомогательные методы для календаря
+  // Вспомогательные методы для календаря
   private generateDatesFromSchedule(schedule: string, startDate: Date, endDate: Date): string[] {
-    const dates: string[] = [];
-    const [daysStr, time] = schedule.split(' ');
-    const days = daysStr.split('/');
-    
-    const dayMap: Record<string, number> = {
-      'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
-    };
-    
-    let current = new Date(startDate);
-    while (current <= endDate) {
-      const currentDay = current.getDay();
-      if (days.some(day => dayMap[day] === currentDay)) {
-        dates.push(current.toISOString().split('T')[0]);
-      }
-      current.setDate(current.getDate() + 1);
+  const dates: string[] = [];
+  const [daysStr, time] = schedule.split(' ');
+  const days = daysStr.split('/');
+  
+  const dayMap: Record<string, number> = {
+    'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
+  };
+  
+  let current = new Date(startDate);
+  while (current <= endDate) {
+    const currentDay = current.getDay();
+    if (days.some(day => dayMap[day] === currentDay)) {
+      dates.push(current.toISOString().split('T')[0]);
     }
-    
-    return dates;
+    current.setDate(current.getDate() + 1);
   }
+  
+  return dates;
+}
 
-  private extractTimeFromSchedule(schedule: string): string {
-    const parts = schedule.split(' ');
-    return parts[parts.length - 1];
-  }
+private extractTimeFromSchedule(schedule: string): string {
+  const parts = schedule.split(' ');
+  return parts[parts.length - 1];
+}
 }

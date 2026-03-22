@@ -172,7 +172,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Действия" width="200" fixed="right" align="right">
+          <el-table-column label="Действия" width="220" fixed="right" align="right">
             <template #default="{ row }">
               <div style="display: flex; gap: 8px; justify-content: flex-end;">
                 <el-button 
