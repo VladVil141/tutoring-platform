@@ -12,6 +12,10 @@
             <el-button type="text" style="color: white; margin-right: 5px;" @click="$router.push('/catalog')">
               Каталог
             </el-button>
+            <!-- Кнопка Календарь -->
+            <el-button type="text" style="color: white;" @click="$router.push('/schedule')">
+              Календарь
+            </el-button>
             
             <template v-if="authStore.isAuthenticated">
               <el-button type="text" style="color: white;" @click="$router.push('/cabinet')">

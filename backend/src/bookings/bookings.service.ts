@@ -2,12 +2,16 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
 import { Booking, BookingStatus } from './entities/booking.entity';
+import { GroupBooking, GroupBookingStatus } from './entities/group-booking.entity';  // 👈 добавить
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateRecurringBookingDto } from './dto/create-recurring-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { ListingsService } from '../listings/listings.service';
+import { GroupListingsService } from '../listings/group-listings.service';  // 👈 добавить
 import { UsersService } from '../users/users.service';
+import { ScheduleQueryDto, ScheduleView } from './dto/schedule-query.dto';
+import { ScheduleEventDto } from './dto/schedule-response.dto';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -15,7 +19,10 @@ export class BookingsService {
   constructor(
     @InjectRepository(Booking)
     private bookingRepository: Repository<Booking>,
+    @InjectRepository(GroupBooking)  // 👈 добавить
+    private groupBookingRepository: Repository<GroupBooking>,
     private listingsService: ListingsService,
+    private groupListingsService: GroupListingsService,  // 👈 добавить
     private usersService: UsersService,
   ) {}
 
@@ -305,5 +312,168 @@ export class BookingsService {
     });
 
     return !existing;
+  }
+
+  // Получить расписание (индивидуальные + групповые)
+async getSchedule(userId: number, role: string, query: ScheduleQueryDto): Promise<ScheduleEventDto[]> {
+  const events: ScheduleEventDto[] = [];
+  
+  // Определяем диапазон дат
+  let startDate: Date, endDate: Date;
+  const today = new Date();
+  
+  if (query.start_date && query.end_date) {
+    startDate = new Date(query.start_date);
+    endDate = new Date(query.end_date);
+  } else if (query.view === ScheduleView.DAY) {
+    startDate = today;
+    endDate = today;
+  } else if (query.view === ScheduleView.WEEK) {
+    startDate = new Date(today);
+    startDate.setDate(today.getDate() - today.getDay() + 1);
+    endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+  } else {
+    // MONTH
+    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  }
+  
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+  
+  if (role === 'student') {
+    // Индивидуальные занятия ученика
+    const individualBookings = await this.bookingRepository.find({
+      where: {
+        student_id: userId,
+        date: Between(startStr, endStr),
+        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+      },
+      relations: ['listing', 'listing.tutor', 'listing.tutor.profile']
+    });
+    
+    for (const booking of individualBookings) {
+      events.push({
+        id: booking.id,
+        type: 'individual',
+        subject: booking.listing.subject,
+        date: booking.date,
+        time: booking.time,
+        status: booking.status,
+        tutor_name: `${booking.listing.tutor.profile.first_name} ${booking.listing.tutor.profile.last_name}`,
+        tutor_id: booking.listing.tutor.id,
+      });
+    }
+    
+    // Групповые занятия ученика
+    const groupBookings = await this.groupBookingRepository.find({
+      where: {
+        student_id: userId,
+        status: GroupBookingStatus.APPROVED
+      },
+      relations: ['group_listing', 'group_listing.tutor', 'group_listing.tutor.profile']
+    });
+    
+    for (const gb of groupBookings) {
+      const schedule = gb.group_listing.schedule;
+      const dates = this.generateDatesFromSchedule(schedule, startDate, endDate);
+      
+      for (const date of dates) {
+        events.push({
+          id: gb.id,
+          type: 'group',
+          subject: gb.group_listing.subject,
+          date,
+          time: this.extractTimeFromSchedule(schedule),
+          status: 'confirmed',
+          tutor_name: `${gb.group_listing.tutor.profile.first_name} ${gb.group_listing.tutor.profile.last_name}`,
+          tutor_id: gb.group_listing.tutor.id,
+          group_size: gb.group_listing.current_students,
+          max_students: gb.group_listing.max_students
+        });
+      }
+    }
+  } else if (role === 'tutor') {
+    // Индивидуальные занятия репетитора
+    const individualBookings = await this.bookingRepository.find({
+      where: {
+        tutor_id: userId,
+        date: Between(startStr, endStr),
+        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+      },
+      relations: ['student', 'student.profile', 'listing']
+    });
+    
+    for (const booking of individualBookings) {
+      events.push({
+        id: booking.id,
+        type: 'individual',
+        subject: booking.listing.subject,
+        date: booking.date,
+        time: booking.time,
+        status: booking.status,
+        student_name: `${booking.student.profile.first_name} ${booking.student.profile.last_name}`,
+        student_id: booking.student.id,
+      });
+    }
+    
+    // Групповые занятия репетитора
+    const groupListings = await this.groupListingsService.findAll();
+    
+    for (const gl of groupListings) {
+      if (gl.tutor_id !== userId) continue;
+      
+      const schedule = gl.schedule;
+      const dates = this.generateDatesFromSchedule(schedule, startDate, endDate);
+      
+      for (const date of dates) {
+        events.push({
+          id: gl.id,
+          type: 'group',
+          subject: gl.subject,
+          date,
+          time: this.extractTimeFromSchedule(schedule),
+          status: 'confirmed',
+          group_size: gl.current_students,
+          max_students: gl.max_students
+        });
+      }
+    }
+  }
+  
+  // Сортировка по дате и времени
+  return events.sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    return a.time.localeCompare(b.time);
+  });
+}
+
+// Вспомогательные методы для календаря
+  private generateDatesFromSchedule(schedule: string, startDate: Date, endDate: Date): string[] {
+    const dates: string[] = [];
+    const [daysStr, time] = schedule.split(' ');
+    const days = daysStr.split('/');
+    
+    const dayMap: Record<string, number> = {
+      'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
+    };
+    
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const currentDay = current.getDay();
+      if (days.some(day => dayMap[day] === currentDay)) {
+        dates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return dates;
+  }
+
+  private extractTimeFromSchedule(schedule: string): string {
+    const parts = schedule.split(' ');
+    return parts[parts.length - 1];
   }
 }

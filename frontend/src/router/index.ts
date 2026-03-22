@@ -86,6 +86,12 @@ const router = createRouter({
       component: () => import('../views/TutorBookingsView.vue'),
       meta: { requiresAuth: true, requiresTutor: true },
     },
+    {
+      path: '/schedule',
+      name: 'schedule',
+      component: () => import('../views/ScheduleView.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

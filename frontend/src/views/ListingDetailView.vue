@@ -159,7 +159,7 @@
       <el-time-select
         v-model="bookingForm.time"
         start="08:00"
-        step="00:30"
+        step="01:00"
         end="22:00"
         placeholder="Выберите время"
         style="width: 100%;"

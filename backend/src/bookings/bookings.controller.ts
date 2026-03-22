@@ -4,6 +4,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateRecurringBookingDto } from './dto/create-recurring-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
+import { ScheduleQueryDto } from './dto/schedule-query.dto'; // 👈 добавить импорт
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('bookings')
@@ -19,6 +20,13 @@ export class BookingsController {
   ) {
     const available = await this.bookingsService.checkAvailability(+listingId, date, time);
     return { available };
+  }
+
+  // 👇 НОВЫЙ МЕТОД КАЛЕНДАРЯ (после check-availability)
+  @Get('schedule')
+  @UseGuards(JwtAuthGuard)
+  async getSchedule(@Request() req, @Query() query: ScheduleQueryDto) {
+    return this.bookingsService.getSchedule(req.user.userId, req.user.role, query);
   }
 
   // 2. Пути для регулярных занятий

@@ -149,4 +149,9 @@ export const groupBookingService = {
   leaveGroup: (groupListingId: number) => api.delete(`/group-bookings/group/${groupListingId}/leave`),
 };
 
+export const scheduleService = {
+  // Получить расписание
+  getSchedule: (params?: any) => api.get('/bookings/schedule', { params }),
+};
+
 export default api;
