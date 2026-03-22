@@ -12,7 +12,9 @@ import { GroupListingsService } from '../listings/group-listings.service';  // �
 import { UsersService } from '../users/users.service';
 import { ScheduleQueryDto, ScheduleView } from './dto/schedule-query.dto';
 import { ScheduleEventDto } from './dto/schedule-response.dto';
+import { IsNull } from 'typeorm';
 import * as crypto from 'crypto';
+
 
 @Injectable()
 export class BookingsService {
@@ -157,41 +159,47 @@ export class BookingsService {
 
   // Получить мои заявки (для ученика)
   async findMyBookings(studentId: number, query: BookingQueryDto): Promise<Booking[]> {
-    const where: any = { student_id: studentId };
+  const where: any = { 
+    student_id: studentId,
+    group_booking_id: IsNull()  // 👈 исключаем групповые заявки
+  };
 
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    if (query.start_date && query.end_date) {
-      where.date = Between(query.start_date, query.end_date);
-    }
-
-    return await this.bookingRepository.find({
-      where,
-      relations: ['listing', 'listing.tutor', 'listing.tutor.profile'],
-      order: { date: 'ASC', time: 'ASC' },
-    });
+  if (query.status) {
+    where.status = query.status;
   }
+
+  if (query.start_date && query.end_date) {
+    where.date = Between(query.start_date, query.end_date);
+  }
+
+  return await this.bookingRepository.find({
+    where,
+    relations: ['listing', 'listing.tutor', 'listing.tutor.profile'],
+    order: { date: 'ASC', time: 'ASC' },
+  });
+}
 
   // Получить заявки ко мне (для репетитора)
   async findTutorBookings(tutorId: number, query: BookingQueryDto): Promise<Booking[]> {
-    const where: any = { tutor_id: tutorId };
+  const where: any = { 
+    tutor_id: tutorId,
+    group_booking_id: IsNull()  // 👈 исключаем групповые заявки
+  };
 
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    if (query.start_date && query.end_date) {
-      where.date = Between(query.start_date, query.end_date);
-    }
-
-    return await this.bookingRepository.find({
-      where,
-      relations: ['student', 'student.profile', 'listing'],
-      order: { date: 'ASC', time: 'ASC' },
-    });
+  if (query.status) {
+    where.status = query.status;
   }
+
+  if (query.start_date && query.end_date) {
+    where.date = Between(query.start_date, query.end_date);
+  }
+
+  return await this.bookingRepository.find({
+    where,
+    relations: ['student', 'student.profile', 'listing'],
+    order: { date: 'ASC', time: 'ASC' },
+  });
+}
 
   // Получить одну заявку
   async findOne(id: number): Promise<Booking> {

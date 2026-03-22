@@ -15,6 +15,7 @@ export interface Booking {
   recurring_id?: string;
   recurring_pattern?: string;
   recurring_end?: string;
+  group_booking_id?: number;
   listing?: {
     id: number;
     subject: string;
@@ -24,6 +25,8 @@ export interface Booking {
       profile: {
         first_name: string;
         last_name: string;
+        avatar_url?: string;
+        city?: string;
       };
     };
   };
@@ -32,6 +35,7 @@ export interface Booking {
     profile: {
       first_name: string;
       last_name: string;
+      avatar_url?: string;
     };
   };
 }
@@ -43,7 +47,7 @@ export const useBookingStore = defineStore('booking', () => {
   const currentRecurring = ref<Booking[]>([]);
   const loading = ref(false);
 
-  // Существующие методы
+  // Создать разовую заявку
   async function createBooking(data: any) {
     try {
       loading.value = true;
@@ -58,7 +62,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // 👇 НОВЫЙ МЕТОД для регулярных занятий
+  // Создать регулярные занятия
   async function createRecurring(data: any) {
     try {
       loading.value = true;
@@ -73,6 +77,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Получить мои заявки (ученик)
   async function fetchMyBookings(params?: any) {
     try {
       loading.value = true;
@@ -87,6 +92,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Получить заявки ко мне (репетитор)
   async function fetchTutorBookings(params?: any) {
     try {
       loading.value = true;
@@ -101,6 +107,21 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Получить одну заявку
+  async function fetchBooking(id: number) {
+    try {
+      loading.value = true;
+      const response = await bookingService.getOne(id);
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error('Ошибка загрузки заявки');
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Получить серию занятий (регулярные)
   async function fetchRecurring(recurringId: string) {
     try {
       loading.value = true;
@@ -115,6 +136,35 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Получить серию групповых занятий
+  async function fetchGroupSeries(groupListingId: number) {
+    try {
+      loading.value = true;
+      const response = await bookingService.getGroupSeries(groupListingId);
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error('Ошибка загрузки расписания');
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Получить серию групповых занятий для репетитора
+async function fetchGroupSeriesForTutor(groupListingId: number) {
+  try {
+    loading.value = true;
+    const response = await bookingService.getGroupSeriesForTutor(groupListingId);
+    return response.data;
+  } catch (error: any) {
+    ElMessage.error('Ошибка загрузки расписания');
+    return [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+  // Отменить всю серию (регулярные)
   async function cancelRecurring(recurringId: string) {
     try {
       loading.value = true;
@@ -129,6 +179,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Подтвердить заявку (репетитор)
   async function confirmBooking(id: number) {
     try {
       loading.value = true;
@@ -147,6 +198,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Отменить заявку (ученик или репетитор)
   async function cancelBooking(id: number, role: 'student' | 'tutor') {
     try {
       loading.value = true;
@@ -170,6 +222,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Отметить как выполненное (репетитор)
   async function completeBooking(id: number) {
     try {
       loading.value = true;
@@ -188,20 +241,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить одну заявку
-  async function fetchBooking(id: number) {
-    try {
-      loading.value = true;
-      const response = await bookingService.getOne(id);
-      return response.data;
-    } catch (error: any) {
-      ElMessage.error('Ошибка загрузки заявки');
-      return null;
-    } finally {
-      loading.value = false;
-    }
-  }
-
+  // Проверить доступность времени
   async function checkAvailability(listingId: number, date: string, time: string) {
     try {
       const response = await bookingService.checkAvailability(listingId, date, time);
@@ -221,12 +261,14 @@ export const useBookingStore = defineStore('booking', () => {
     createRecurring,
     fetchMyBookings,
     fetchTutorBookings,
+    fetchBooking,
     fetchRecurring,
+    fetchGroupSeries,
+    fetchGroupSeriesForTutor,
     cancelRecurring,
     confirmBooking,
     cancelBooking,
     completeBooking,
     checkAvailability,
-    fetchBooking,  // 👈 добавить
   };
 });

@@ -1,7 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { GroupBookingsService } from './group-bookings.service';
 import { CreateGroupBookingDto } from './dto/create-group-booking.dto';
-import { UpdateGroupBookingStatusDto } from './dto/update-group-booking-status.dto';
 import { GroupBookingQueryDto } from './dto/group-booking-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -37,6 +36,30 @@ export class GroupBookingsController {
       throw new ForbiddenException('Только репетиторы могут просматривать заявки');
     }
     return this.groupBookingsService.findTutorBookings(req.user.userId, query.status);
+  }
+  // Получить серию занятий по группе для репетитора
+@Get('series/tutor/:groupListingId')
+@UseGuards(JwtAuthGuard)
+async getSeriesForTutor(@Param('groupListingId') groupListingId: string, @Request() req) {
+  if (req.user.role !== 'tutor') {
+    throw new ForbiddenException('Только репетиторы могут просматривать расписание');
+  }
+  const listingId = parseInt(groupListingId, 10);
+  if (isNaN(listingId)) {
+    throw new BadRequestException('Некорректный ID группы');
+  }
+  return this.groupBookingsService.getSeriesForTutor(listingId, req.user.userId);
+}
+
+  // Получить серию занятий по группе
+  @Get('series/:groupListingId')
+  @UseGuards(JwtAuthGuard)
+  async getSeries(@Param('groupListingId') groupListingId: string, @Request() req) {
+    const listingId = parseInt(groupListingId, 10);
+    if (isNaN(listingId)) {
+      throw new BadRequestException('Некорректный ID группы');
+    }
+    return this.groupBookingsService.getSeries(listingId, req.user.userId);
   }
 
   // Получить одну заявку

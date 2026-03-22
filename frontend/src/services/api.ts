@@ -88,8 +88,11 @@ export const groupListingService = {
 };
 
 export const bookingService = {
-  // Создать заявку
+  // Создать разовую заявку
   create: (data: any) => api.post('/bookings', data),
+  
+  // Создать регулярные занятия
+  createRecurring: (data: any) => api.post('/bookings/recurring', data),
   
   // Мои заявки (ученик)
   getMyBookings: (params?: any) => api.get('/bookings/my', { params }),
@@ -100,6 +103,14 @@ export const bookingService = {
   // Получить одну заявку
   getOne: (id: number) => api.get(`/bookings/${id}`),
   
+  // Получить серию (регулярные)
+  getRecurring: (recurringId: string) => api.get(`/bookings/recurring/${recurringId}`),
+  
+  // Получить серию групповых занятий
+  getGroupSeries: (groupListingId: number) => api.get(`/group-bookings/series/${groupListingId}`),
+  // Получить серию групповых занятий для репетитора
+getGroupSeriesForTutor: (groupListingId: number) => api.get(`/group-bookings/series/tutor/${groupListingId}`),
+  
   // Подтвердить заявку
   confirm: (id: number) => api.put(`/bookings/${id}/confirm`),
   
@@ -109,18 +120,12 @@ export const bookingService = {
   // Отметить как выполненное
   complete: (id: number) => api.put(`/bookings/${id}/complete`),
   
+  // Отменить серию
+  cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
+  
   // Проверить доступность
   checkAvailability: (listingId: number, date: string, time: string) => 
     api.get('/bookings/check-availability', { params: { listing_id: listingId, date, time } }),
-
-  // Создать регулярные занятия
-  createRecurring: (data: any) => api.post('/bookings/recurring', data),
-  
-  // Получить серию занятий
-  getRecurring: (recurringId: string) => api.get(`/bookings/recurring/${recurringId}`),
-  
-  // Отменить серию
-  cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
 };
 
 export const groupBookingService = {

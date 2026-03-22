@@ -25,6 +25,7 @@ export class GroupListingsService {
       tutor_id: tutorId,
       tutor: tutor,
       current_students: 0,
+      weeks: createDto.weeks || 4,  // 👈 значение по умолчанию
     });
 
     return await this.groupListingRepository.save(listing);

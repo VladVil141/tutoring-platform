@@ -60,6 +60,10 @@ export class GroupListing {
   @Column({ default: 0 })
   current_students: number;
 
+  // 👇 НОВОЕ ПОЛЕ
+  @Column({ default: 4 })
+  weeks: number;  // количество недель курса
+
   @Column({ default: true })
   is_active: boolean;
 

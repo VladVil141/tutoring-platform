@@ -71,7 +71,7 @@
       </div>
 
       <!-- Разовые заявки -->
-      <h3 v-if="filteredRecurringGroups.length" class="section-subtitle">Разовые заявки</h3>
+      <h3 v-if="filteredRecurringGroups.length" class="section-subtitle">Разовые занятия</h3>
       <el-table :data="filteredSingleBookings" v-loading="loading" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="120">
           <template #default="{ row }">
@@ -102,7 +102,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="Действия" fixed="right" align="right" width="240">
+        <el-table-column label="Действия" fixed="right" align="right" width="280">
           <template #default="{ row }">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
               <el-button 
@@ -128,6 +128,8 @@
                   type="primary" 
                   @click="rescheduleBooking(row)"
                   style="padding: 5px 15px;"
+                  :disabled="true"
+                  title="Функция будет доступна в Этапе 8"
                 >
                   Перенести
                 </el-button>
@@ -138,14 +140,19 @@
         </el-table-column>
       </el-table>
 
-      <!-- Групповые заявки -->
+      <!-- Групповые занятия -->
       <div v-if="groupBookings.length" class="group-bookings-section">
-        <h3>Групповые заявки</h3>
+        <h3>Групповые занятия</h3>
         <el-table :data="groupBookings" style="width: 100%" v-loading="groupLoading">
           <el-table-column prop="group_listing.subject" label="Предмет" min-width="150" />
           <el-table-column label="Расписание" min-width="150">
             <template #default="{ row }">
               {{ row.group_listing?.schedule }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Занятий" width="100" align="center">
+            <template #default="{ row }">
+              {{ getGroupLessonsCount(row) }}
             </template>
           </el-table-column>
           <el-table-column label="Репетитор" min-width="200">
@@ -165,27 +172,32 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Действия" width="150" fixed="right" align="right">
+          <el-table-column label="Действия" width="200" fixed="right" align="right">
             <template #default="{ row }">
-              <el-button 
-                v-if="row.status === 'pending'"
-                size="small" 
-                type="danger" 
-                @click="cancelGroupBooking(row.id)"
-                style="padding: 5px 15px;"
-              >
-                Отменить
-              </el-button>
-              <el-button 
-                v-else-if="row.status === 'approved'"
-                size="small" 
-                type="warning" 
-                @click="leaveGroup(row.group_listing_id)"
-                style="padding: 5px 15px;"
-              >
-                Выйти
-              </el-button>
-              <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
+              <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <el-button 
+                  size="small" 
+                  @click="showGroupSeries(row)"
+                >
+                  Подробнее
+                </el-button>
+                <el-button 
+                  v-if="row.status === 'pending'"
+                  size="small" 
+                  type="danger" 
+                  @click="cancelGroupBooking(row.id)"
+                >
+                  Отменить
+                </el-button>
+                <el-button 
+                  v-else-if="row.status === 'approved'"
+                  size="small" 
+                  type="warning" 
+                  @click="leaveGroup(row.group_listing_id)"
+                >
+                  Выйти
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -197,7 +209,7 @@
       />
     </el-card>
 
-    <!-- Модальное окно с деталями серии -->
+    <!-- Модальное окно с деталями регулярной серии -->
     <el-dialog v-model="seriesModalVisible" title="Детали серии" width="1000px" class="series-dialog">
       <el-table :data="currentSeries" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="140">
@@ -228,7 +240,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Действия" fixed="right" align="right" width="180">
+        <el-table-column label="Действия" fixed="right" align="right" width="230">
           <template #default="{ row }">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
               <el-button 
@@ -251,6 +263,54 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- Модальное окно с деталями групповой серии -->
+    <el-dialog v-model="groupSeriesModalVisible" title="Расписание групповых занятий" width="700px" class="series-dialog">
+      <el-table :data="groupCurrentSeries" style="width: 100%" v-loading="groupSeriesLoading" :show-header="true">
+        <el-table-column prop="date" label="Дата" width="140">
+          <template #default="{ row }">
+            {{ formatDate(row.date) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="time" label="Время" width="100" align="center" />
+        <el-table-column label="Статус" width="140" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small" effect="dark">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Действия" fixed="right" align="right" width="220">
+          <template #default="{ row }">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <el-button 
+                v-if="row.status === 'confirmed'"
+                size="small" 
+                type="primary" 
+                @click="rescheduleGroupBooking(row)"
+                :disabled="true"
+                title="Функция будет доступна в Этапе 8"
+              >
+                Перенести
+              </el-button>
+              <el-button 
+                v-if="row.status === 'confirmed'"
+                size="small" 
+                type="danger" 
+                @click="cancelBooking(row.id)"
+              >
+                Отменить
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="groupSeriesModalVisible = false">Закрыть</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -266,12 +326,28 @@ const bookingStore = useBookingStore();
 const groupBookingStore = useGroupBookingStore();
 const loading = ref(false);
 const groupLoading = ref(false);
+const groupSeriesLoading = ref(false);
 const filterStatus = ref('');
 const seriesModalVisible = ref(false);
+const groupSeriesModalVisible = ref(false);
 const currentSeries = ref<any[]>([]);
+const groupCurrentSeries = ref<any[]>([]);
 
 // Групповые заявки
 const groupBookings = computed(() => groupBookingStore.myBookings);
+
+// Подсчет количества занятий в группе
+function getGroupLessonsCount(booking: any): number {
+  const schedule = booking.group_listing?.schedule;
+  const weeks = booking.group_listing?.weeks || 4;
+  
+  if (!schedule) return 0;
+  
+  const daysPart = schedule.split(' ')[0];
+  const daysCount = daysPart.split('/').length;
+  
+  return daysCount * weeks;
+}
 
 // Регулярные серии
 const recurringGroups = computed(() => {
@@ -329,6 +405,16 @@ function canCancelSeries(series: any[]) {
 function showSeries(series: any[]) {
   currentSeries.value = series;
   seriesModalVisible.value = true;
+}
+
+async function showGroupSeries(groupBooking: any) {
+  groupSeriesLoading.value = true;
+  groupSeriesModalVisible.value = true;
+  
+  // Загружаем серию занятий из Booking по group_booking_id
+  const series = await bookingStore.fetchGroupSeries(groupBooking.group_listing_id);
+  groupCurrentSeries.value = series;
+  groupSeriesLoading.value = false;
 }
 
 async function cancelSeries(recurringId: string) {
@@ -444,6 +530,10 @@ function contactTutor(row: any) {
 }
 
 function rescheduleBooking(row: any) {
+  ElMessage.info('Функция переноса будет доступна в Этапе 8');
+}
+
+function rescheduleGroupBooking(row: any) {
   ElMessage.info('Функция переноса будет доступна в Этапе 8');
 }
 

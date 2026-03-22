@@ -97,6 +97,9 @@
                 <el-icon><Calendar /></el-icon>
                 {{ listing.schedule }}
               </el-descriptions-item>
+              <el-descriptions-item label="Длительность курса">
+                {{ listing.weeks || 4 }} недель
+              </el-descriptions-item>
               <el-descriptions-item label="Цена">
                 <strong>{{ Number(listing.price).toLocaleString() }} ₽/час</strong>
               </el-descriptions-item>
@@ -111,41 +114,41 @@
             </div>
           </div>
 
-<!-- Кнопка подачи заявки -->
-<el-divider />
+          <!-- Кнопка подачи заявки -->
+          <el-divider />
 
-<div class="action-buttons">
-  <!-- Для учеников, если группа не заполнена -->
-  <el-button 
-    v-if="!isOwner && authStore.isStudent && listing.is_active"
-    type="warning" 
-    size="large" 
-    @click="applyToGroup" 
-    :loading="applying"
-    :disabled="hasApplied || isInGroup"
-  >
-    {{ getApplyButtonText() }}
-  </el-button>
-  
-  <!-- Для владельца (репетитора) -->
-  <el-button 
-    v-if="isOwner"
-    type="primary" 
-    size="large" 
-    @click="editListing"
-  >
-    Редактировать
-  </el-button>
-  
-  <el-button 
-    v-if="isOwner"
-    type="danger" 
-    size="large" 
-    @click="deleteListing"
-  >
-    Удалить
-  </el-button>
-</div>
+          <div class="action-buttons">
+            <!-- Для учеников, если группа не заполнена -->
+            <el-button 
+              v-if="!isOwner && authStore.isStudent && listing.is_active"
+              type="warning" 
+              size="large" 
+              @click="applyToGroup" 
+              :loading="applying"
+              :disabled="hasApplied || isInGroup"
+            >
+              {{ getApplyButtonText() }}
+            </el-button>
+            
+            <!-- Для владельца (репетитора) -->
+            <el-button 
+              v-if="isOwner"
+              type="primary" 
+              size="large" 
+              @click="editListing"
+            >
+              Редактировать
+            </el-button>
+            
+            <el-button 
+              v-if="isOwner"
+              type="danger" 
+              size="large" 
+              @click="deleteListing"
+            >
+              Удалить
+            </el-button>
+          </div>
         </div>
       </el-card>
 
@@ -167,12 +170,12 @@ const route = useRoute();
 const router = useRouter();
 const groupStore = useGroupListingStore();
 const authStore = useAuthStore();
-
 const groupBookingStore = useGroupBookingStore();
-const isInGroup = ref(false);
+
 const loading = ref(false);
 const applying = ref(false);
-const hasApplied = ref(false); // TODO: проверить из заявок
+const hasApplied = ref(false);
+const isInGroup = ref(false);
 
 const listing = computed(() => groupStore.currentListing);
 
@@ -181,12 +184,6 @@ const isOwner = computed(() => {
   return authStore.user.id === listing.value.tutor_id;
 });
 
-const canApply = computed(() => {
-  if (!listing.value) return false;
-  return listing.value.current_students < listing.value.max_students;
-});
-
-// Проверяем статус заявки при загрузке
 onMounted(async () => {
   await loadListing();
   await checkBookingStatus();

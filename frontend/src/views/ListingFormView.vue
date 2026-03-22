@@ -17,16 +17,28 @@
 
         <!-- Общие поля -->
         <el-form-item label="Предмет" prop="subject">
-          <el-input v-model="form.subject" placeholder="Например: Математика, Физика, Английский язык" />
+          <el-input 
+            v-model="form.subject" 
+            placeholder="Например: Математика, Физика, Английский язык"
+          />
         </el-form-item>
 
         <el-form-item label="Стоимость (₽/час)" prop="price">
-          <el-input-number v-model="form.price" :min="0" :max="10000" style="width: 100%;" />
+          <el-input-number 
+            v-model="form.price" 
+            :min="0" 
+            :max="10000"
+            style="width: 100%;"
+          />
         </el-form-item>
 
         <el-form-item label="Описание" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="4" 
-            placeholder="Подробное описание занятий, методика, подготовка к экзаменам и т.д." />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="4"
+            placeholder="Подробное описание занятий, методика, подготовка к экзаменам и т.д."
+          />
         </el-form-item>
 
         <el-form-item label="Уровень" prop="level">
@@ -45,12 +57,31 @@
           </el-select>
         </el-form-item>
 
-        <!-- Поля для групповых занятий -->
+        <!-- Блок для групповых занятий -->
         <template v-if="form.type === 'group'">
           <el-divider>Настройки группы</el-divider>
 
-          <el-form-item label="Расписание" prop="schedule">
-            <el-input v-model="form.schedule" placeholder="Например: Пн/Ср 19:00 или Вт/Чт 17:00" />
+          <el-form-item label="Дни недели" prop="weekdays">
+            <el-checkbox-group v-model="form.weekdays">
+              <el-checkbox label="ПН">ПН</el-checkbox>
+              <el-checkbox label="ВТ">ВТ</el-checkbox>
+              <el-checkbox label="СР">СР</el-checkbox>
+              <el-checkbox label="ЧТ">ЧТ</el-checkbox>
+              <el-checkbox label="ПТ">ПТ</el-checkbox>
+              <el-checkbox label="СБ">СБ</el-checkbox>
+              <el-checkbox label="ВС">ВС</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+
+          <el-form-item label="Время" prop="time">
+            <el-time-select
+              v-model="form.time"
+              start="08:00"
+              step="01:00"
+              end="22:00"
+              placeholder="Выберите время"
+              style="width: 100%;"
+            />
           </el-form-item>
 
           <el-row :gutter="20">
@@ -65,6 +96,18 @@
               </el-form-item>
             </el-col>
           </el-row>
+
+          <el-form-item label="Длительность курса (недель)" prop="weeks">
+            <el-input-number 
+              v-model="form.weeks" 
+              :min="1" 
+              :max="52" 
+              style="width: 100%;"
+            />
+            <div class="form-tip" style="font-size: 12px; color: #909399; margin-top: 5px;">
+              На основе этого будет сгенерировано расписание занятий
+            </div>
+          </el-form-item>
         </template>
 
         <el-form-item>
@@ -97,6 +140,12 @@ const loading = ref(false);
 const isEdit = computed(() => !!route.params.id);
 const isGroup = computed(() => route.path.includes('/group-listings'));
 
+// Формируем строку расписания для отправки на бэкенд
+const scheduleString = computed(() => {
+  if (form.type !== 'group' || form.weekdays.length === 0 || !form.time) return '';
+  return `${form.weekdays.join('/')} ${form.time}`;
+});
+
 const form = reactive({
   type: 'individual',
   subject: '',
@@ -105,9 +154,11 @@ const form = reactive({
   level: 'any',
   format: 'any',
   // Групповые поля
-  schedule: '',
+  weekdays: [] as string[],
+  time: '',
   min_students: 2,
-  max_students: 50
+  max_students: 8,
+  weeks: 4
 });
 
 const rules = reactive<FormRules>({
@@ -122,8 +173,11 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Введите описание', trigger: 'blur' },
     { min: 10, message: 'Минимум 10 символов', trigger: 'blur' }
   ],
-  schedule: [
-    { required: true, message: 'Укажите расписание группы', trigger: 'blur' }
+  weekdays: [
+    { required: true, message: 'Выберите дни недели', trigger: 'change' }
+  ],
+  time: [
+    { required: true, message: 'Выберите время', trigger: 'change' }
   ],
   min_students: [
     { required: true, message: 'Укажите минимум учеников', trigger: 'blur' },
@@ -132,6 +186,10 @@ const rules = reactive<FormRules>({
   max_students: [
     { required: true, message: 'Укажите максимум учеников', trigger: 'blur' },
     { type: 'number', min: 1, max: 50, message: 'Максимум 50 учеников', trigger: 'blur' }
+  ],
+  weeks: [
+    { required: true, message: 'Укажите длительность курса', trigger: 'blur' },
+    { type: 'number', min: 1, max: 52, message: 'От 1 до 52 недель', trigger: 'blur' }
   ]
 });
 
@@ -141,22 +199,16 @@ onMounted(async () => {
     return;
   }
 
-  // Определяем тип по URL
-  const isGroup = route.path.includes('/group-listings');
-  
-  // Устанавливаем тип формы
-  if (isGroup) {
+  // Устанавливаем тип формы по URL
+  if (isGroup.value) {
     form.type = 'group';
-  } else {
-    form.type = 'individual';
   }
 
   // Если это редактирование
   if (isEdit.value) {
     const id = Number(route.params.id);
     
-    if (isGroup) {
-      // Загружаем групповое объявление
+    if (isGroup.value) {
       const listing = await groupListingStore.fetchListing(id);
       if (listing) {
         form.subject = listing.subject;
@@ -164,12 +216,19 @@ onMounted(async () => {
         form.description = listing.description;
         form.level = listing.level;
         form.format = listing.format;
-        form.schedule = listing.schedule;
+        
+        // Парсим расписание
+        if (listing.schedule) {
+          const [days, time] = listing.schedule.split(' ');
+          form.weekdays = days.split('/');
+          form.time = time;
+        }
+        
         form.min_students = listing.min_students;
         form.max_students = listing.max_students;
+        form.weeks = listing.weeks || 4;
       }
     } else {
-      // Загружаем индивидуальное объявление
       const listing = await listingStore.fetchListing(id);
       if (listing) {
         form.subject = listing.subject;
@@ -190,17 +249,32 @@ async function saveListing() {
       loading.value = true;
       
       try {
-        if (form.type === 'individual') {
-          if (isEdit.value) {
-            await listingStore.updateListing(Number(route.params.id), form);
+        const dataToSend: any = {
+          subject: form.subject,
+          price: form.price,
+          description: form.description,
+          level: form.level,
+          format: form.format,
+        };
+        
+        if (form.type === 'group') {
+          dataToSend.schedule = scheduleString.value;
+          dataToSend.min_students = form.min_students;
+          dataToSend.max_students = form.max_students;
+          dataToSend.weeks = form.weeks;
+        }
+        
+        if (isEdit.value) {
+          if (form.type === 'individual') {
+            await listingStore.updateListing(Number(route.params.id), dataToSend);
           } else {
-            await listingStore.createListing(form);
+            await groupListingStore.updateListing(Number(route.params.id), dataToSend);
           }
         } else {
-          if (isEdit.value) {
-            await groupListingStore.updateListing(Number(route.params.id), form);
+          if (form.type === 'individual') {
+            await listingStore.createListing(dataToSend);
           } else {
-            await groupListingStore.createListing(form);
+            await groupListingStore.createListing(dataToSend);
           }
         }
         
@@ -229,5 +303,21 @@ function goBack() {
 
 .listing-form-card {
   width: 600px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+:deep(.el-checkbox-group) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+:deep(.el-checkbox) {
+  margin-right: 0;
 }
 </style>

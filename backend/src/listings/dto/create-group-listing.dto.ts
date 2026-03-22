@@ -21,7 +21,7 @@ export class CreateGroupListingDto {
   format?: GroupListingFormat;
 
   @IsString()
-  schedule: string; // например: "Пн/Ср 18:00"
+  schedule: string;
 
   @IsInt()
   @Min(1)
@@ -29,5 +29,13 @@ export class CreateGroupListingDto {
 
   @IsInt()
   @Min(1)
+  @Max(50)
   max_students: number;
+
+  // 👇 НОВОЕ ПОЛЕ
+  @IsInt()
+  @Min(1)
+  @Max(52)
+  @IsOptional()
+  weeks?: number;
 }

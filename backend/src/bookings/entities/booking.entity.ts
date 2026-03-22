@@ -32,7 +32,7 @@ export class Booking {
   @JoinColumn({ name: 'listing_id' })
   listing: Listing;
 
-  @Column()
+  @Column({ nullable: true })  // 👈 делаем nullable
   listing_id: number;
 
   @Column({ type: 'date' })
@@ -48,18 +48,21 @@ export class Booking {
   })
   status: BookingStatus;
 
-  // Новые поля для регулярных занятий
+  // Поля для регулярных занятий
   @Column({ nullable: true })
-  recurring_id: string;  // UUID для группы занятий
+  recurring_id: string;
 
   @Column({ nullable: true })
-  recurring_pattern: string;  // например "ПН,СР,ПТ"
+  recurring_pattern: string;
 
   @Column({ nullable: true, type: 'date' })
-  recurring_end: string;  // дата окончания серии
+  recurring_end: string;
 
   @Column({ nullable: true })
-  parent_booking_id: number;  // для дочерних занятий
+  parent_booking_id: number;
+
+  @Column({ nullable: true })
+  group_booking_id: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

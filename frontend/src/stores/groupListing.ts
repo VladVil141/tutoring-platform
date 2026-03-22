@@ -14,6 +14,7 @@ export interface GroupListing {
   min_students: number;
   max_students: number;
   current_students: number;
+  weeks: number;  // 👈 ДОБАВИТЬ
   is_active: boolean;
   created_at: string;
   tutor_id: number;
