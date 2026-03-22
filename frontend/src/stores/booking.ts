@@ -188,6 +188,20 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
+  // Получить одну заявку
+  async function fetchBooking(id: number) {
+    try {
+      loading.value = true;
+      const response = await bookingService.getOne(id);
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error('Ошибка загрузки заявки');
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function checkAvailability(listingId: number, date: string, time: string) {
     try {
       const response = await bookingService.checkAvailability(listingId, date, time);
@@ -213,5 +227,6 @@ export const useBookingStore = defineStore('booking', () => {
     cancelBooking,
     completeBooking,
     checkAvailability,
+    fetchBooking,  // 👈 добавить
   };
 });
