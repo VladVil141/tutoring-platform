@@ -90,6 +90,11 @@ export const bookingService = {
   cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
   checkAvailability: (listingId: number, date: string, time: string) => 
     api.get('/bookings/check-availability', { params: { listing_id: listingId, date, time } }),
+  // Переносы
+  createReschedule: (data: any) => api.post('/bookings/reschedule', data),
+  getPendingReschedules: () => api.get('/bookings/reschedule/pending'),
+  confirmReschedule: (id: number) => api.put(`/bookings/reschedule/${id}/confirm`),
+  rejectReschedule: (id: number) => api.put(`/bookings/reschedule/${id}/reject`),
 };
 
 export const groupBookingService = {

@@ -14,6 +14,34 @@
         </div>
       </template>
 
+      <!-- Блок новых запросов на перенос (для ученика) -->
+<div v-if="pendingReschedules.length" class="reschedule-block">
+  <el-alert type="warning" :closable="false" show-icon>
+    <template #title>
+      <span>Новые запросы на перенос ({{ pendingReschedules.length }})</span>
+    </template>
+  </el-alert>
+  
+  <div v-for="req in pendingReschedules" :key="req.id" class="reschedule-item">
+    <div class="reschedule-info">
+      <strong>{{ req.booking?.listing?.subject }}</strong>
+      <p>Репетитор: {{ req.booking?.tutor?.profile?.first_name }} {{ req.booking?.tutor?.profile?.last_name }}</p>
+      <p>Было: {{ formatDisplayDate(req.old_date) }} {{ req.old_time }}</p>
+      <p>Стало: {{ formatDisplayDate(req.new_date) }} {{ req.new_time }}</p>
+      <p>Инициатор: {{ req.requested_by === 'student' ? 'Вы' : 'Репетитор' }}</p>
+      <p v-if="req.reason" class="reason">Причина: {{ req.reason }}</p>
+    </div>
+    <div class="reschedule-actions">
+      <el-button size="small" type="success" @click="confirmReschedule(req.id)">
+        Подтвердить
+      </el-button>
+      <el-button size="small" type="danger" @click="rejectReschedule(req.id)">
+        Отклонить
+      </el-button>
+    </div>
+  </div>
+</div>
+
       <!-- Регулярные серии -->
       <div v-if="filteredRecurringGroups.length" class="recurring-section">
         <h3>Регулярные занятия</h3>
@@ -74,10 +102,10 @@
       <h3 v-if="filteredRecurringGroups.length" class="section-subtitle">Разовые занятия</h3>
       <el-table :data="filteredSingleBookings" v-loading="loading" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="120">
-  <template #default="{ row }">
-    {{ formatDisplayDate(row.date) }}
-  </template>
-</el-table-column>
+          <template #default="{ row }">
+            {{ formatDisplayDate(row.date) }}
+          </template>
+        </el-table-column>
         
         <el-table-column prop="time" label="Время" width="100" align="center" />
         
@@ -102,7 +130,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="Действия" fixed="right" align="right" width="280">
+        <el-table-column label="Действия" fixed="right" align="right" width="240">
           <template #default="{ row }">
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
               <el-button 
@@ -126,10 +154,8 @@
                 <el-button 
                   size="small" 
                   type="primary" 
-                  @click="rescheduleBooking(row)"
+                  @click="openRescheduleModal(row)"
                   style="padding: 5px 15px;"
-                  :disabled="true"
-                  title="Функция будет доступна в Этапе 8"
                 >
                   Перенести
                 </el-button>
@@ -213,10 +239,10 @@
     <el-dialog v-model="seriesModalVisible" title="Детали серии" width="1000px" class="series-dialog">
       <el-table :data="currentSeries" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="140">
-  <template #default="{ row }">
-    {{ formatDisplayDate(row.date) }}
-  </template>
-</el-table-column>
+          <template #default="{ row }">
+            {{ formatDisplayDate(row.date) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="time" label="Время" width="100" align="center" />
         <el-table-column label="Репетитор" min-width="200">
           <template #default="{ row }">
@@ -240,22 +266,30 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Действия" fixed="right" align="right" width="230">
-          <template #default="{ row }">
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <el-button 
-                v-if="row.status === 'pending'"
-                size="small" 
-                type="danger" 
-                @click="cancelBooking(row.id)"
-                style="padding: 5px 15px;"
-              >
-                Отменить
-              </el-button>
-              <span v-else style="display: inline-block; width: 70px; text-align: center;">—</span>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column label="Действия" fixed="right" align="right" width="140">
+  <template #default="{ row }">
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+      <el-button 
+        v-if="row.status === 'confirmed'"
+        size="small" 
+        type="primary" 
+        @click="openRescheduleModal(row)"
+        style="padding: 5px 15px;"
+      >
+        Перенести
+      </el-button>
+      <el-button 
+        v-if="row.status === 'pending'"
+        size="small" 
+        type="danger" 
+        @click="cancelBooking(row.id)"
+        style="padding: 5px 15px;"
+      >
+        Отменить
+      </el-button>
+    </div>
+  </template>
+</el-table-column>
       </el-table>
       <template #footer>
         <div class="dialog-footer">
@@ -268,10 +302,10 @@
     <el-dialog v-model="groupSeriesModalVisible" title="Расписание групповых занятий" width="700px" class="series-dialog">
       <el-table :data="groupCurrentSeries" style="width: 100%" v-loading="groupSeriesLoading" :show-header="true">
         <el-table-column prop="date" label="Дата" width="140">
-  <template #default="{ row }">
-    {{ formatDisplayDate(row.date) }}
-  </template>
-</el-table-column>
+          <template #default="{ row }">
+            {{ formatDisplayDate(row.date) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="time" label="Время" width="100" align="center" />
         <el-table-column label="Статус" width="140" align="center">
           <template #default="{ row }">
@@ -280,35 +314,81 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Действия" fixed="right" align="right" width="220">
-          <template #default="{ row }">
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <el-button 
-                v-if="row.status === 'confirmed'"
-                size="small" 
-                type="primary" 
-                @click="rescheduleGroupBooking(row)"
-                :disabled="true"
-                title="Функция будет доступна в Этапе 8"
-              >
-                Перенести
-              </el-button>
-              <el-button 
-                v-if="row.status === 'confirmed'"
-                size="small" 
-                type="danger" 
-                @click="cancelBooking(row.id)"
-              >
-                Отменить
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column label="Действия" fixed="right" align="right" width="240">
+  <template #default="{ row }">
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+      <el-button 
+        v-if="row.status === 'confirmed'"
+        size="small" 
+        type="primary" 
+        @click="openRescheduleModal(row)"
+        style="padding: 5px 15px;"
+      >
+        Перенести
+      </el-button>
+      <el-button 
+        v-if="row.status === 'confirmed'"
+        size="small" 
+        type="danger" 
+        @click="cancelBooking(row.id)"
+        style="padding: 5px 15px;"
+      >
+        Отменить
+      </el-button>
+    </div>
+  </template>
+</el-table-column>
       </el-table>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="groupSeriesModalVisible = false">Закрыть</el-button>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- Модальное окно переноса занятия -->
+    <el-dialog v-model="rescheduleModalVisible" title="Перенос занятия" width="450px">
+      <el-form :model="rescheduleForm" label-width="100px">
+        <el-form-item label="Новая дата">
+          <el-date-picker 
+            v-model="rescheduleForm.new_date" 
+            type="date" 
+            placeholder="Выберите дату"
+            format="DD.MM.YYYY"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disabledDate"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        
+        <el-form-item label="Новое время">
+          <el-time-select
+            v-model="rescheduleForm.new_time"
+            start="08:00"
+            step="01:00"
+            end="22:00"
+            format="HH:mm"
+            value-format="HH:mm"
+            placeholder="Выберите время"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        
+        <el-form-item label="Причина">
+          <el-input 
+            v-model="rescheduleForm.reason" 
+            type="textarea" 
+            :rows="2"
+            placeholder="Укажите причину переноса (необязательно)"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="rescheduleModalVisible = false">Отмена</el-button>
+        <el-button type="primary" @click="submitReschedule" :loading="rescheduleLoading">
+          Отправить запрос
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -319,6 +399,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
+import { bookingService } from '../services/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
@@ -326,15 +407,121 @@ const bookingStore = useBookingStore();
 const groupBookingStore = useGroupBookingStore();
 const loading = ref(false);
 const groupLoading = ref(false);
-const groupSeriesLoading = ref(false);
 const filterStatus = ref('');
 const seriesModalVisible = ref(false);
 const groupSeriesModalVisible = ref(false);
 const currentSeries = ref<any[]>([]);
 const groupCurrentSeries = ref<any[]>([]);
+const groupSeriesLoading = ref(false);
+
+// Переносы
+const pendingReschedules = ref<any[]>([]);
+const rescheduleModalVisible = ref(false);
+const rescheduleLoading = ref(false);
+const rescheduleBooking = ref<any>(null);
+const rescheduleForm = ref({
+  new_date: '',
+  new_time: '',
+  reason: ''
+});
 
 // Групповые заявки
 const groupBookings = computed(() => groupBookingStore.myBookings);
+
+// Запрет на прошедшие даты
+function disabledDate(time: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return time.getTime() < today.getTime();
+}
+
+// Форматирование даты
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+// Загрузить ожидающие запросы
+async function loadPendingReschedules() {
+  try {
+    const response = await bookingService.getPendingReschedules();
+    pendingReschedules.value = response.data;
+  } catch (error) {
+    console.error('Ошибка загрузки запросов');
+  }
+}
+
+async function confirmReschedule(id: number) {
+  try {
+    await ElMessageBox.confirm('Подтвердить перенос?', 'Подтверждение', {
+      confirmButtonText: 'Да',
+      cancelButtonText: 'Нет',
+      type: 'info'
+    });
+    
+    await bookingService.confirmReschedule(id);
+    await loadPendingReschedules();
+    await loadBookings();
+    ElMessage.success('Перенос подтвержден');
+  } catch (error) {
+    // пользователь отменил
+  }
+}
+
+async function rejectReschedule(id: number) {
+  try {
+    await ElMessageBox.confirm('Отклонить перенос?', 'Подтверждение', {
+      confirmButtonText: 'Да',
+      cancelButtonText: 'Нет',
+      type: 'warning'
+    });
+    
+    await bookingService.rejectReschedule(id);
+    await loadPendingReschedules();
+    await loadBookings();
+    ElMessage.success('Перенос отклонен');
+  } catch (error) {
+    // пользователь отменил
+  }
+}
+
+function openRescheduleModal(booking: any) {
+  rescheduleBooking.value = booking;
+  rescheduleForm.value = {
+    new_date: '',
+    new_time: '',
+    reason: ''
+  };
+  rescheduleModalVisible.value = true;
+}
+
+async function submitReschedule() {
+  if (!rescheduleForm.value.new_date || !rescheduleForm.value.new_time) {
+    ElMessage.warning('Выберите новую дату и время');
+    return;
+  }
+  
+  rescheduleLoading.value = true;
+  
+  try {
+    await bookingService.createReschedule({
+      booking_id: rescheduleBooking.value.id,
+      new_date: rescheduleForm.value.new_date,
+      new_time: rescheduleForm.value.new_time,
+      reason: rescheduleForm.value.reason
+    });
+    
+    ElMessage.success('Запрос на перенос отправлен');
+    rescheduleModalVisible.value = false;
+    await loadBookings();
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || 'Ошибка отправки запроса');
+  } finally {
+    rescheduleLoading.value = false;
+  }
+}
 
 // Подсчет количества занятий в группе
 function getGroupLessonsCount(booking: any): number {
@@ -411,7 +598,6 @@ async function showGroupSeries(groupBooking: any) {
   groupSeriesLoading.value = true;
   groupSeriesModalVisible.value = true;
   
-  // Загружаем серию занятий из Booking по group_booking_id
   const series = await bookingStore.fetchGroupSeries(groupBooking.group_listing_id);
   groupCurrentSeries.value = series;
   groupSeriesLoading.value = false;
@@ -436,18 +622,6 @@ async function loadBookings() {
   loading.value = true;
   await bookingStore.fetchMyBookings();
   loading.value = false;
-}
-
-// Форматировать дату для отображения (ДД.ММ.ГГГГ)
-function formatDisplayDate(dateStr: string): string {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  return `${parts[2]}.${parts[1]}.${parts[0]}`;
-}
-
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('ru-RU');
 }
 
 function getStatusType(status: string) {
@@ -537,17 +711,10 @@ function contactTutor(row: any) {
   ElMessage.info('Функция связи будет доступна в Этапе 9');
 }
 
-function rescheduleBooking(row: any) {
-  ElMessage.info('Функция переноса будет доступна в Этапе 8');
-}
-
-function rescheduleGroupBooking(row: any) {
-  ElMessage.info('Функция переноса будет доступна в Этапе 8');
-}
-
 onMounted(async () => {
   await loadBookings();
   await groupBookingStore.fetchMyBookings();
+  await loadPendingReschedules();
 });
 </script>
 
@@ -569,6 +736,52 @@ onMounted(async () => {
 .card-header h2 {
   margin: 0;
   color: #2c3e50;
+}
+
+/* Блок запросов на перенос */
+.reschedule-block {
+  background-color: #fef0e6;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-left: 4px solid #e6a23c;
+}
+
+.reschedule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.reschedule-item:last-child {
+  border-bottom: none;
+}
+
+.reschedule-info {
+  flex: 1;
+}
+
+.reschedule-info strong {
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+.reschedule-info p {
+  margin: 5px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.reschedule-info .reason {
+  font-style: italic;
+  color: #999;
+}
+
+.reschedule-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .recurring-section {

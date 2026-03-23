@@ -52,6 +52,20 @@ export class GroupBookingsController {
     return this.groupBookingsService.getSeriesForTutor(listingId, req.user.userId);
   }
 
+  // Получить серию занятий по группе для ученика
+  @Get('series/:groupListingId')
+  @UseGuards(JwtAuthGuard)
+  async getSeries(@Param('groupListingId') groupListingId: string, @Request() req) {
+    if (req.user.role !== 'student') {
+      throw new ForbiddenException('Только ученики могут просматривать расписание');
+    }
+    const listingId = parseInt(groupListingId, 10);
+    if (isNaN(listingId)) {
+      throw new BadRequestException('Некорректный ID группы');
+    }
+    return this.groupBookingsService.getSeries(listingId, req.user.userId);
+  }
+
   // Получить одну заявку
   @Get(':id')
   @UseGuards(JwtAuthGuard)
