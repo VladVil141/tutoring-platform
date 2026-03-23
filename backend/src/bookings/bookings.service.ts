@@ -1,19 +1,18 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In } from 'typeorm';
+import { Repository, Between, In, IsNull } from 'typeorm';
 import { Booking, BookingStatus } from './entities/booking.entity';
-import { GroupBooking, GroupBookingStatus } from './entities/group-booking.entity';  // 👈 добавить
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateRecurringBookingDto } from './dto/create-recurring-booking.dto';
-import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
-import { dateUtils } from '../utils/date.utils';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { ListingsService } from '../listings/listings.service';
-import { GroupListingsService } from '../listings/group-listings.service';  // 👈 добавить
 import { UsersService } from '../users/users.service';
+import { GroupListingsService } from '../listings/group-listings.service';
+import { GroupBooking, GroupBookingStatus } from './entities/group-booking.entity';
 import { ScheduleQueryDto, ScheduleView } from './dto/schedule-query.dto';
 import { ScheduleEventDto } from './dto/schedule-response.dto';
-import { IsNull } from 'typeorm';
+import { dateUtils } from '../utils/date.utils';
+import { AttendanceService } from './attendance.service';  // 👈 добавить импорт
 import * as crypto from 'crypto';
 
 
@@ -22,11 +21,12 @@ export class BookingsService {
   constructor(
     @InjectRepository(Booking)
     private bookingRepository: Repository<Booking>,
-    @InjectRepository(GroupBooking)  // 👈 добавить
+    @InjectRepository(GroupBooking)
     private groupBookingRepository: Repository<GroupBooking>,
     private listingsService: ListingsService,
-    private groupListingsService: GroupListingsService,  // 👈 добавить
+    private groupListingsService: GroupListingsService,
     private usersService: UsersService,
+    private attendanceService: AttendanceService,  // 👈 добавить
   ) {}
 
   // Вспомогательная функция для генерации дат по дням недели
@@ -325,6 +325,10 @@ async findRecurringForTutor(recurringId: string, tutorId: number): Promise<Booki
     }
 
     booking.status = BookingStatus.CONFIRMED;
+
+    // 👇 СОЗДАЕМ ЗАПИСЬ В ДНЕВНИКЕ
+    await this.attendanceService.createFromBooking(booking);
+
     return await this.bookingRepository.save(booking);
   }
 

@@ -112,4 +112,15 @@ export const scheduleService = {
   getSchedule: (params?: any) => api.get('/bookings/schedule', { params }),
 };
 
+export const attendanceService = {
+  // Получить дневник репетитора
+  getTutorAttendances: (params?: any) => api.get('/attendances/tutor', { params }),
+  
+  // Получить одну запись
+  getOne: (id: number) => api.get(`/attendances/${id}`),
+  
+  // Обновить запись
+  update: (id: number, data: any) => api.put(`/attendances/${id}`, data),
+};
+
 export default api;

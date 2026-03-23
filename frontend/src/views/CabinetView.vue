@@ -191,6 +191,11 @@
       <el-tab-pane v-if="authStore.isTutor" label="Заявки ко мне" name="tutor-bookings">
         <TutorBookingsView />
       </el-tab-pane>
+
+      <!-- Вкладка для репетитора: Дневник -->
+      <el-tab-pane v-if="authStore.isTutor" label="Дневник" name="attendance">
+        <AttendanceView />
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -205,6 +210,7 @@ import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
 import StudentBookingsView from './StudentBookingsView.vue';
 import TutorBookingsView from './TutorBookingsView.vue';
+import AttendanceView from './AttendanceView.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
@@ -276,6 +282,10 @@ const handleTabChange = async (tab: string) => {
     await bookingStore.fetchTutorBookings();
     await groupBookingStore.fetchTutorBookings();
   }
+  // 👇 Добавляем загрузку дневника
+  if (tab === 'attendance' && authStore.isTutor) {
+    // Данные загрузятся в компоненте AttendanceView
+  }
 };
 
 // Загружаем данные при монтировании
@@ -298,6 +308,8 @@ onMounted(async () => {
     activeTab.value = 'my-bookings';
   } else if (route.query.tab === 'tutor-bookings') {
     activeTab.value = 'tutor-bookings';
+  } else if (route.query.tab === 'attendance') {
+    activeTab.value = 'attendance';
   }
 });
 
