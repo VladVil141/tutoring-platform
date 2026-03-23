@@ -141,16 +141,16 @@
     <!-- Для разовых занятий показываем выбор даты -->
     <template v-if="!isRecurring">
       <el-form-item label="Дата">
-        <el-date-picker 
-          v-model="bookingForm.date" 
-          type="date" 
-          placeholder="Выберите дату"
-          format="DD.MM.YYYY"
-          value-format="YYYY-MM-DD"
-          :disabled-date="disabledDate"
-          style="width: 100%;"
-        />
-      </el-form-item>
+  <el-date-picker 
+    v-model="bookingForm.date" 
+    type="date" 
+    placeholder="Выберите дату"
+    format="DD.MM.YYYY"
+    value-format="YYYY-MM-DD"
+    :disabled-date="disabledDate"
+    style="width: 100%;"
+  />
+</el-form-item>
     </template>
     
     <!-- Для регулярных занятий дата не нужна -->
@@ -237,6 +237,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useListingStore } from '../stores/listing';
 import { useBookingStore } from '../stores/booking';
 import { useAuthStore } from '../stores/auth';
+import { dateUtils } from '../utils/date.utils';
 import { ArrowLeft, Location } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -382,6 +383,7 @@ async function submitBooking() {
       return;
     }
     
+    // Отправляем локальное время (бэкенд сконвертирует в UTC)
     const success = await bookingStore.createRecurring({
       listing_id: listing.value!.id,
       time: bookingForm.value.time,
@@ -401,6 +403,7 @@ async function submitBooking() {
       return;
     }
     
+    // Проверяем доступность (бэкенд сконвертирует в UTC)
     const available = await bookingStore.checkAvailability(
       listing.value!.id,
       bookingForm.value.date,
@@ -413,6 +416,7 @@ async function submitBooking() {
       return;
     }
     
+    // Отправляем локальное время (бэкенд сконвертирует в UTC)
     const success = await bookingStore.createBooking({
       listing_id: listing.value!.id,
       date: bookingForm.value.date,

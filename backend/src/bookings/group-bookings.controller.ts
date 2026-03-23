@@ -37,29 +37,19 @@ export class GroupBookingsController {
     }
     return this.groupBookingsService.findTutorBookings(req.user.userId, query.status);
   }
-  // Получить серию занятий по группе для репетитора
-@Get('series/tutor/:groupListingId')
-@UseGuards(JwtAuthGuard)
-async getSeriesForTutor(@Param('groupListingId') groupListingId: string, @Request() req) {
-  if (req.user.role !== 'tutor') {
-    throw new ForbiddenException('Только репетиторы могут просматривать расписание');
-  }
-  const listingId = parseInt(groupListingId, 10);
-  if (isNaN(listingId)) {
-    throw new BadRequestException('Некорректный ID группы');
-  }
-  return this.groupBookingsService.getSeriesForTutor(listingId, req.user.userId);
-}
 
-  // Получить серию занятий по группе
-  @Get('series/:groupListingId')
+  // Получить серию занятий по группе для репетитора
+  @Get('series/tutor/:groupListingId')
   @UseGuards(JwtAuthGuard)
-  async getSeries(@Param('groupListingId') groupListingId: string, @Request() req) {
+  async getSeriesForTutor(@Param('groupListingId') groupListingId: string, @Request() req) {
+    if (req.user.role !== 'tutor') {
+      throw new ForbiddenException('Только репетиторы могут просматривать расписание');
+    }
     const listingId = parseInt(groupListingId, 10);
     if (isNaN(listingId)) {
       throw new BadRequestException('Некорректный ID группы');
     }
-    return this.groupBookingsService.getSeries(listingId, req.user.userId);
+    return this.groupBookingsService.getSeriesForTutor(listingId, req.user.userId);
   }
 
   // Получить одну заявку

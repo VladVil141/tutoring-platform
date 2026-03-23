@@ -24,7 +24,7 @@
         <!-- День -->
         <div v-if="view === 'day'" class="day-view">
           <div class="day-header">
-            <h3>{{ formatDate(selectedDate, 'full') }}</h3>
+            <h3>{{ formatDisplayDate(getUTCDateString(selectedDate)) }}</h3>
           </div>
           <div class="day-events">
             <div v-for="hour in hours" :key="hour" class="hour-row">
@@ -56,7 +56,7 @@
           <div class="week-header">
             <div v-for="day in weekDays" :key="day.date" class="week-day">
               <div class="day-name">{{ day.name }}</div>
-              <div class="day-date">{{ day.dateNum }}</div>
+              <div class="day-date">{{ formatDisplayDate(day.date) }}</div>
             </div>
           </div>
           <div class="week-body">
@@ -85,31 +85,35 @@
         </div>
 
         <!-- Месяц -->
-        <div v-else class="month-view">
-          <div class="month-header">
-            <div v-for="day in weekNames" :key="day" class="month-day-name">{{ day }}</div>
-          </div>
-          <div class="month-grid">
-            <div
-              v-for="day in monthDays"
-              :key="day.date"
-              class="month-day"
-              :class="{ 'other-month': !day.isCurrentMonth }"
-              @click="selectDate(day.date)"
-            >
-              <div class="day-number">{{ day.dayNum }}</div>
-              <div class="day-events">
-                <div
-                  v-for="event in getEventsByDate(day.date)"
-                  :key="event.id"
-                  class="event-dot"
-                  :class="getEventClass(event)"
-                  :title="`${event.subject} ${event.time}`"
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
+<div v-else class="month-view">
+  <div class="month-header">
+    <div v-for="day in weekNames" :key="day" class="month-day-name">{{ day }}</div>
+  </div>
+  <div class="month-grid">
+    <div
+      v-for="day in monthDays"
+      :key="day.date"
+      class="month-day"
+      :class="{ 'other-month': !day.isCurrentMonth }"
+      @click="selectDate(day.date)"
+    >
+      <div class="day-number">{{ day.dayNum }}</div>
+      <div class="day-events">
+        <div
+          v-for="event in getEventsByDate(day.date)"
+          :key="event.id"
+          class="event-dot"
+          :class="{
+            'event-pending': event.type === 'individual' && event.status === 'pending',
+            'event-confirmed': (event.type === 'individual' && event.status === 'confirmed') || event.type === 'group',
+            'event-completed': event.type === 'individual' && event.status === 'completed'
+          }"
+          :title="`${event.subject} ${event.time}`"
+        ></div>
+      </div>
+    </div>
+  </div>
+</div>
 
         <el-empty v-if="!events.length && !loading" description="Нет занятий" />
       </div>
@@ -121,7 +125,6 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useScheduleStore } from '../stores/schedule';
-import type { ScheduleEvent } from '../stores/schedule';  // 👈 type-only import
 import { useAuthStore } from '../stores/auth';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 
@@ -137,14 +140,27 @@ const events = computed(() => scheduleStore.events);
 const isStudent = computed(() => authStore.isStudent);
 const isTutor = computed(() => authStore.isTutor);
 
-// Часы
-const hours = Array.from({ length: 15 }, (_, i) => i + 8); // [8,9,10,...,22]
+// Часы (с 8:00 до 22:00)
+const hours = Array.from({ length: 15 }, (_, i) => i + 8);
 
 // Названия дней
 const weekNames = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
 
+// Форматирование даты для отображения (ДД.ММ.ГГГГ)
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+// Получить дату в формате YYYY-MM-DD (UTC)
+function getUTCDateString(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
 // Получить час из времени
-function getEventHour(time: string | undefined): number {
+function getEventHour(time: string): number {
   if (!time) return 0;
   const hourStr = time.substring(0, 2);
   const hour = parseInt(hourStr, 10);
@@ -154,14 +170,16 @@ function getEventHour(time: string | undefined): number {
 // Получить события по дате
 function getEventsByDate(date: string | undefined): any[] {
   if (!date) return [];
-  return events.value.filter(e => e.date === date);
+  const dateStr = date as string;
+  return events.value.filter(e => e.date === dateStr);
 }
 
 // Получить события по дате и часу
 function getEventsByDateAndHour(date: string | undefined, hour: number): any[] {
   if (!date) return [];
+  const dateStr = date as string;
   return events.value.filter(e => {
-    if (e.date !== date) return false;
+    if (e.date !== dateStr) return false;
     const eventHour = getEventHour(e.time);
     return eventHour === hour;
   });
@@ -169,16 +187,13 @@ function getEventsByDateAndHour(date: string | undefined, hour: number): any[] {
 
 // Получить события по часу (для дня)
 function getEventsByHour(hour: number): any[] {
-  return events.value.filter(e => {
-    const eventHour = getEventHour(e.time);
-    return eventHour === hour;
-  });
+  return events.value.filter(e => getEventHour(e.time) === hour);
 }
 
-// Форматирование даты
+// Форматирование даты для отображения в шапке
 function formatDate(date: Date, format: 'day' | 'full' = 'day'): string {
   if (format === 'day') {
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric' });
+    return `${date.getDate()}.${date.getMonth() + 1}`;
   }
   return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 }
@@ -189,34 +204,34 @@ const currentDateLabel = computed(() => {
     return formatDate(selectedDate.value, 'full');
   }
   if (view.value === 'week') {
-    const start = getWeekStart(selectedDate.value);
+    const start = getWeekStartUTC(selectedDate.value);
     const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return `${formatDate(start)} - ${formatDate(end)}`;
+    end.setUTCDate(start.getUTCDate() + 6);
+    return `${formatDisplayDate(getUTCDateString(start))} - ${formatDisplayDate(getUTCDateString(end))}`;
   }
   return selectedDate.value.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
 });
 
-// Получить начало недели
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
+// Получить начало недели в UTC
+function getWeekStartUTC(date: Date): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay();
   const diff = (day === 0 ? 6 : day - 1);
-  d.setDate(d.getDate() - diff);
+  d.setUTCDate(d.getUTCDate() - diff);
   return d;
 }
 
 // Дни недели для отображения
 const weekDays = computed(() => {
-  const start = getWeekStart(selectedDate.value);
+  const start = getWeekStartUTC(selectedDate.value);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const date = new Date(start);
-    date.setDate(start.getDate() + i);
+    date.setUTCDate(start.getUTCDate() + i);
     days.push({
-      date: date.toISOString().split('T')[0],
+      date: getUTCDateString(date),
       name: weekNames[i],
-      dateNum: date.getDate(),
+      dateNum: date.getUTCDate(),
     });
   }
   return days;
@@ -224,29 +239,29 @@ const weekDays = computed(() => {
 
 // Дни месяца
 const monthDays = computed(() => {
-  const year = selectedDate.value.getFullYear();
-  const month = selectedDate.value.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const startWeekday = firstDay.getDay() || 7;
+  const year = selectedDate.value.getUTCFullYear();
+  const month = selectedDate.value.getUTCMonth();
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+  const startWeekday = firstDay.getUTCDay() || 7;
   const days: any[] = [];
   
   // Дни предыдущего месяца
-  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  const prevMonthLastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   for (let i = startWeekday - 1; i > 0; i--) {
-    const date = new Date(year, month - 1, prevMonthLastDay - i + 1);
+    const date = new Date(Date.UTC(year, month - 1, prevMonthLastDay - i + 1));
     days.push({
-      date: date.toISOString().split('T')[0],
-      dayNum: date.getDate(),
+      date: getUTCDateString(date),
+      dayNum: date.getUTCDate(),
       isCurrentMonth: false,
     });
   }
   
   // Дни текущего месяца
-  for (let i = 1; i <= lastDay.getDate(); i++) {
-    const date = new Date(year, month, i);
+  for (let i = 1; i <= lastDay.getUTCDate(); i++) {
+    const date = new Date(Date.UTC(year, month, i));
     days.push({
-      date: date.toISOString().split('T')[0],
+      date: getUTCDateString(date),
       dayNum: i,
       isCurrentMonth: true,
     });
@@ -255,13 +270,24 @@ const monthDays = computed(() => {
   return days;
 });
 
-// Класс для события
+// Класс для события (только желтый и зеленый)
 function getEventClass(event: any): string {
-  if (event.type === 'group') return 'event-group';
-  if (event.status === 'pending') return 'event-pending';
-  if (event.status === 'confirmed') return 'event-confirmed';
-  if (event.status === 'completed') return 'event-completed';
+  if (event.type === 'individual') {
+    if (event.status === 'pending') return 'event-pending';
+    if (event.status === 'confirmed') return 'event-confirmed';
+    if (event.status === 'completed') return 'event-completed';
+  }
+  if (event.type === 'group') {
+    // Групповые всегда считаем подтвержденными (зеленые)
+    return 'event-confirmed';
+  }
   return '';
+}
+
+// Получить текущую дату в UTC строке
+function getTodayUTC(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 }
 
 // Переход к деталям события
@@ -277,15 +303,15 @@ function goToEvent(event: any) {
 function prevPeriod() {
   if (view.value === 'day') {
     const newDate = new Date(selectedDate.value);
-    newDate.setDate(selectedDate.value.getDate() - 1);
+    newDate.setUTCDate(selectedDate.value.getUTCDate() - 1);
     selectedDate.value = newDate;
   } else if (view.value === 'week') {
     const newDate = new Date(selectedDate.value);
-    newDate.setDate(selectedDate.value.getDate() - 7);
+    newDate.setUTCDate(selectedDate.value.getUTCDate() - 7);
     selectedDate.value = newDate;
   } else {
     const newDate = new Date(selectedDate.value);
-    newDate.setMonth(selectedDate.value.getMonth() - 1);
+    newDate.setUTCMonth(selectedDate.value.getUTCMonth() - 1);
     selectedDate.value = newDate;
   }
   loadSchedule();
@@ -294,28 +320,42 @@ function prevPeriod() {
 function nextPeriod() {
   if (view.value === 'day') {
     const newDate = new Date(selectedDate.value);
-    newDate.setDate(selectedDate.value.getDate() + 1);
+    newDate.setUTCDate(selectedDate.value.getUTCDate() + 1);
     selectedDate.value = newDate;
   } else if (view.value === 'week') {
     const newDate = new Date(selectedDate.value);
-    newDate.setDate(selectedDate.value.getDate() + 7);
+    newDate.setUTCDate(selectedDate.value.getUTCDate() + 7);
     selectedDate.value = newDate;
   } else {
     const newDate = new Date(selectedDate.value);
-    newDate.setMonth(selectedDate.value.getMonth() + 1);
+    newDate.setUTCMonth(selectedDate.value.getUTCMonth() + 1);
     selectedDate.value = newDate;
   }
   loadSchedule();
 }
 
 function today() {
-  selectedDate.value = new Date();
+  const now = new Date();
+  selectedDate.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   loadSchedule();
 }
 
-function selectDate(dateStr: string) {
+function selectDate(dateStr: string | undefined) {
   if (!dateStr) return;
-  selectedDate.value = new Date(dateStr);
+  
+  // Приводим к строке
+  const dateString = dateStr as string;
+  const parts = dateString.split('-');
+  
+  if (parts.length !== 3) return;
+  
+  const year = parseInt(parts[0] as string, 10);
+  const month = parseInt(parts[1] as string, 10);
+  const day = parseInt(parts[2] as string, 10);
+  
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return;
+  
+  selectedDate.value = new Date(Date.UTC(year, month - 1, day));
   view.value = 'day';
   loadSchedule();
 }
@@ -327,18 +367,27 @@ async function loadSchedule() {
     startDate = selectedDate.value;
     endDate = selectedDate.value;
   } else if (view.value === 'week') {
-    startDate = getWeekStart(selectedDate.value);
+    startDate = getWeekStartUTC(selectedDate.value);
     endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 6);
+    endDate.setUTCDate(startDate.getUTCDate() + 6);
   } else {
-    startDate = new Date(selectedDate.value.getFullYear(), selectedDate.value.getMonth(), 1);
-    endDate = new Date(selectedDate.value.getFullYear(), selectedDate.value.getMonth() + 1, 0);
+    startDate = new Date(Date.UTC(selectedDate.value.getUTCFullYear(), selectedDate.value.getUTCMonth(), 1));
+    endDate = new Date(Date.UTC(selectedDate.value.getUTCFullYear(), selectedDate.value.getUTCMonth() + 1, 0));
   }
   
   await scheduleStore.fetchSchedule({
-    start_date: startDate.toISOString().split('T')[0],
-    end_date: endDate.toISOString().split('T')[0],
+    start_date: getUTCDateString(startDate),
+    end_date: getUTCDateString(endDate),
     view: view.value,
+  });
+  
+  // Фильтруем прошедшие даты на фронтенде
+  const todayUTC = getTodayUTC();
+  
+  scheduleStore.events = scheduleStore.events.filter(event => {
+    // Пропускаем прошедшие даты
+    if (event.date < todayUTC) return false;
+    return true;
   });
 }
 
@@ -573,9 +622,6 @@ onMounted(() => {
 .event-completed {
   border-left-color: #909399;
 }
-.event-group {
-  border-left-color: #409eff;
-}
 
 .group-badge {
   background: #409eff;
@@ -585,8 +631,7 @@ onMounted(() => {
   font-size: 10px;
 }
 
-.event-dot.event-pending { background: #e6a23c; }
-.event-dot.event-confirmed { background: #67c23a; }
-.event-dot.event-completed { background: #909399; }
-.event-dot.event-group { background: #409eff; }
+.event-dot.event-pending { background: #e6a23c; }  /* желтый */
+.event-dot.event-confirmed { background: #67c23a; } /* зеленый */
+.event-dot.event-completed { background: #909399; } /* серый */
 </style>

@@ -35,8 +35,8 @@ export const useAuthStore = defineStore('auth', () => {
       
       token.value = response.data.access_token;
       user.value = response.data.user;
-      
-      localStorage.setItem('token', token.value);
+
+      localStorage.setItem('token', token.value ?? '');
       localStorage.setItem('user', JSON.stringify(user.value));
       
       // Загружаем профиль после входа

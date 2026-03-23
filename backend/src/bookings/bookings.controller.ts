@@ -45,6 +45,16 @@ export class BookingsController {
     return this.bookingsService.findRecurring(recurringId);
   }
 
+  // Получить серию занятий для репетитора
+  @Get('recurring/tutor/:recurringId')
+  @UseGuards(JwtAuthGuard)
+  async getRecurringForTutor(@Param('recurringId') recurringId: string, @Request() req) {
+    if (req.user.role !== 'tutor') {
+      throw new ForbiddenException('Только репетиторы могут просматривать серии');
+    }
+    return this.bookingsService.findRecurringForTutor(recurringId, req.user.userId);
+  }
+
   @Delete('recurring/:recurringId')
   @UseGuards(JwtAuthGuard)
   async cancelRecurring(@Param('recurringId') recurringId: string, @Request() req) {
@@ -126,4 +136,6 @@ export class BookingsController {
     }
     return this.bookingsService.complete(bookingId, req.user.userId);
   }
+
+  
 }

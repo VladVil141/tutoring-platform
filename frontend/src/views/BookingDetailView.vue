@@ -20,8 +20,8 @@
 
           <el-descriptions :column="1" border>
             <el-descriptions-item label="Дата">
-              <strong>{{ formatDate(booking.date) }}</strong>
-            </el-descriptions-item>
+  <strong>{{ formatDisplayDate(booking.date) }}</strong>
+</el-descriptions-item>
             <el-descriptions-item label="Время">
               <strong>{{ booking.time }}</strong>
             </el-descriptions-item>
@@ -172,6 +172,13 @@ async function loadBooking() {
     booking.value = data;
   }
   loading.value = false;
+}
+
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
 function formatDate(date: string) {

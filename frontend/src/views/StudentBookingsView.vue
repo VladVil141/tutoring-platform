@@ -74,10 +74,10 @@
       <h3 v-if="filteredRecurringGroups.length" class="section-subtitle">Разовые занятия</h3>
       <el-table :data="filteredSingleBookings" v-loading="loading" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="120">
-          <template #default="{ row }">
-            {{ formatDate(row.date) }}
-          </template>
-        </el-table-column>
+  <template #default="{ row }">
+    {{ formatDisplayDate(row.date) }}
+  </template>
+</el-table-column>
         
         <el-table-column prop="time" label="Время" width="100" align="center" />
         
@@ -213,10 +213,10 @@
     <el-dialog v-model="seriesModalVisible" title="Детали серии" width="1000px" class="series-dialog">
       <el-table :data="currentSeries" style="width: 100%" :show-header="true">
         <el-table-column prop="date" label="Дата" width="140">
-          <template #default="{ row }">
-            {{ formatDate(row.date) }}
-          </template>
-        </el-table-column>
+  <template #default="{ row }">
+    {{ formatDisplayDate(row.date) }}
+  </template>
+</el-table-column>
         <el-table-column prop="time" label="Время" width="100" align="center" />
         <el-table-column label="Репетитор" min-width="200">
           <template #default="{ row }">
@@ -268,10 +268,10 @@
     <el-dialog v-model="groupSeriesModalVisible" title="Расписание групповых занятий" width="700px" class="series-dialog">
       <el-table :data="groupCurrentSeries" style="width: 100%" v-loading="groupSeriesLoading" :show-header="true">
         <el-table-column prop="date" label="Дата" width="140">
-          <template #default="{ row }">
-            {{ formatDate(row.date) }}
-          </template>
-        </el-table-column>
+  <template #default="{ row }">
+    {{ formatDisplayDate(row.date) }}
+  </template>
+</el-table-column>
         <el-table-column prop="time" label="Время" width="100" align="center" />
         <el-table-column label="Статус" width="140" align="center">
           <template #default="{ row }">
@@ -436,6 +436,14 @@ async function loadBookings() {
   loading.value = true;
   await bookingStore.fetchMyBookings();
   loading.value = false;
+}
+
+// Форматировать дату для отображения (ДД.ММ.ГГГГ)
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
 function formatDate(date: string) {
