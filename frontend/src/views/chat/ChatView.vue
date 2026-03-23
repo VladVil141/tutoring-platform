@@ -241,7 +241,7 @@ onMounted(async () => {
   // Потом загружаем сообщения
   await loadMessages();
   
-  // Получаем имя чата (теперь чаты уже загружены)
+  // Получаем имя чата
   if (isPrivateChat.value) {
     const chat = chatStore.privateChats.find(c => c.id === chatId.value);
     if (chat) {
@@ -255,6 +255,10 @@ onMounted(async () => {
       chatName.value = chat.group_listing.subject;
     }
   }
+  
+  // ✅ ПОДПИСКА НА WEBSOCKET (обязательно!)
+  socketService.on('new_message', onNewMessage);
+  socketService.on('message_deleted', onMessageDeleted);
 });
 
 onUnmounted(() => {
