@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ListingsService } from './listings.service';
 import { ListingsController } from './listings.controller';
@@ -7,11 +7,13 @@ import { GroupListingsController } from './group-listings.controller';
 import { Listing } from './entities/listing.entity';
 import { GroupListing } from './entities/group-listing.entity';
 import { UsersModule } from '../users/users.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Listing, GroupListing]),
     UsersModule,
+    forwardRef(() => ChatModule),
   ],
   controllers: [ListingsController, GroupListingsController],
   providers: [ListingsService, GroupListingsService],

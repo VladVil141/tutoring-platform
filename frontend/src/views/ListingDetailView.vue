@@ -98,6 +98,15 @@
             >
               Записаться на занятие
             </el-button>
+
+            <el-button 
+              v-if="!isOwner && authStore.isAuthenticated && authStore.isStudent"
+              type="info" 
+              size="large" 
+              @click="contactTutor"
+            >
+              Написать репетитору
+            </el-button>
             
             <!-- Кнопки для владельца (репетитора) -->
             <el-button 
@@ -237,6 +246,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useListingStore } from '../stores/listing';
 import { useBookingStore } from '../stores/booking';
 import { useAuthStore } from '../stores/auth';
+import { useChatStore } from '../stores/chat';
 import { dateUtils } from '../utils/date.utils';
 import { ArrowLeft, Location } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -246,6 +256,7 @@ const router = useRouter();
 const listingStore = useListingStore();
 const bookingStore = useBookingStore();
 const authStore = useAuthStore();
+const chatStore = useChatStore();
 
 const loading = ref(false);
 const bookingModalVisible = ref(false);
@@ -289,6 +300,15 @@ watch(bookingModalVisible, (val) => {
 onMounted(async () => {
   await loadListing();
 });
+
+async function contactTutor() {
+  if (!listing.value) return;
+  
+  const chat = await chatStore.createPrivateChat(listing.value.tutor_id);
+  if (chat) {
+    router.push(`/chat/private/${chat.id}`);
+  }
+}
 
 async function loadListing() {
   const id = Number(route.params.id);

@@ -78,11 +78,19 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Действия" fixed="right" align="right" width="260">
+          <el-table-column label="Действия" fixed="right" align="right" width="320">
             <template #default="{ row }">
               <div style="display: flex; gap: 8px; justify-content: flex-end;">
                 <el-button size="small" @click="showSeries(row)">
                   Подробнее
+                </el-button>
+                <el-button 
+                  size="small" 
+                  type="warning" 
+                  @click="contactStudent(row)"
+                  style="padding: 5px 15px;"
+                >
+                  Связаться
                 </el-button>
                 <el-button 
                   v-if="canCancelSeries(row)"
@@ -426,12 +434,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useChatStore } from '../stores/chat';
 import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
 import { bookingService } from '../services/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
+const chatStore = useChatStore();
 const bookingStore = useBookingStore();
 const groupBookingStore = useGroupBookingStore();
 const loading = ref(false);
@@ -766,8 +776,14 @@ async function rejectGroupBooking(id: number) {
   }
 }
 
-function contactStudent(row: any) {
-  ElMessage.info('Функция связи будет доступна в Этапе 9');
+async function contactStudent(booking: any) {
+  const studentId = booking.student_id;
+  if (!studentId) return;
+  
+  const chat = await chatStore.createPrivateChat(studentId);
+  if (chat) {
+    router.push(`/chat/private/${chat.id}`);
+  }
 }
 
 onMounted(async () => {

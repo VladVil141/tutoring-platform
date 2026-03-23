@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ListingsModule } from './listings/listings.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { ChatModule } from './chat/chat.module';  // 👈 только здесь
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { BookingsModule } from './bookings/bookings.module';
     UsersModule,
     ListingsModule,
     BookingsModule,
+    ChatModule,  // 👈 только здесь
   ],
 })
 export class AppModule {}

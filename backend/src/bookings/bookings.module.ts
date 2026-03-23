@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
@@ -14,12 +14,14 @@ import { RescheduleRequest } from './entities/reschedule-request.entity';
 import { Attendance } from './entities/attendance.entity';
 import { ListingsModule } from '../listings/listings.module';
 import { UsersModule } from '../users/users.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Booking, GroupBooking, RescheduleRequest, Attendance]),
     ListingsModule,
     UsersModule,
+    forwardRef(() => ChatModule),
   ],
   controllers: [BookingsController, GroupBookingsController, RescheduleController, AttendanceController],
   providers: [BookingsService, GroupBookingsService, RescheduleService, AttendanceService],

@@ -73,18 +73,12 @@ const router = createRouter({
       name: 'catalog',
       component: () => import('../views/CatalogView.vue'),
     },
-    // 👇 НОВЫЕ МАРШРУТЫ ДЛЯ ЗАЯВОК
+    // Заявки
     {
       path: '/my-bookings',
       name: 'my-bookings',
       component: () => import('../views/StudentBookingsView.vue'),
       meta: { requiresAuth: true, requiresStudent: true },
-    },
-    {
-      path: '/bookings/:id',
-      name: 'booking-detail',
-      component: () => import('../views/BookingDetailView.vue'),
-      meta: { requiresAuth: true },
     },
     {
       path: '/tutor-bookings',
@@ -93,9 +87,36 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresTutor: true },
     },
     {
+      path: '/bookings/:id',
+      name: 'booking-detail',
+      component: () => import('../views/BookingDetailView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // Календарь
+    {
       path: '/schedule',
       name: 'schedule',
       component: () => import('../views/ScheduleView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // Дневник
+    {
+      path: '/attendance',
+      name: 'attendance',
+      component: () => import('../views/AttendanceView.vue'),
+      meta: { requiresAuth: true, requiresTutor: true },
+    },
+    // 👇 НОВЫЕ МАРШРУТЫ ДЛЯ ЧАТА
+    {
+      path: '/chats',
+      name: 'chats',
+      component: () => import('../views/chat/ChatListView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/chat/:type/:id',
+      name: 'chat',
+      component: () => import('../views/chat/ChatView.vue'),
       meta: { requiresAuth: true },
     },
   ],

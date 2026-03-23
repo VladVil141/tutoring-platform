@@ -196,6 +196,14 @@
       <el-tab-pane v-if="authStore.isTutor" label="Дневник" name="attendance">
         <AttendanceView />
       </el-tab-pane>
+
+      <el-tab-pane label="Сообщения" name="chats">
+        <div class="chats-preview">
+          <el-button type="primary" @click="$router.push('/chats')">
+            Перейти к чатам
+          </el-button>
+        </div>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>

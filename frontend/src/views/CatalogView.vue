@@ -298,8 +298,18 @@ function goToDetail(id: number, type: string) {
   gap: 10px;
 }
 
-.listing-card {
+/* НОВЫЕ СТИЛИ ДЛЯ ОТСТУПОВ */
+.el-row {
+  margin: 0 !important;
+}
+
+.el-col {
   margin-bottom: 20px;
+  padding: 0 10px;
+}
+
+.listing-card {
+  margin-bottom: 0; /* убираем старый отступ */
   cursor: pointer;
   transition: all 0.3s;
   height: 100%;
@@ -312,6 +322,7 @@ function goToDetail(id: number, type: string) {
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
+/* остальные стили без изменений */
 .group-card {
   border-left: 4px solid #ff9800;
 }
@@ -405,6 +416,10 @@ function goToDetail(id: number, type: string) {
   .filters-form .el-form-item {
     width: 100%;
     margin-right: 0;
+  }
+  
+  .el-col {
+    margin-bottom: 15px;
   }
 }
 </style>

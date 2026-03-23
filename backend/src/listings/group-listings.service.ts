@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { GroupListing } from './entities/group-listing.entity';
 import { CreateGroupListingDto } from './dto/create-group-listing.dto';
 import { UpdateGroupListingDto } from './dto/update-group-listing.dto';
 import { UsersService } from '../users/users.service';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class GroupListingsService {
@@ -12,6 +13,8 @@ export class GroupListingsService {
     @InjectRepository(GroupListing)
     private groupListingRepository: Repository<GroupListing>,
     private usersService: UsersService,
+    @Inject(forwardRef(() => ChatService))
+    private chatService: ChatService,
   ) {}
 
   async create(tutorId: number, createDto: CreateGroupListingDto): Promise<GroupListing> {
@@ -25,10 +28,15 @@ export class GroupListingsService {
       tutor_id: tutorId,
       tutor: tutor,
       current_students: 0,
-      weeks: createDto.weeks || 4,  // 👈 значение по умолчанию
+      weeks: createDto.weeks || 4,
     });
 
-    return await this.groupListingRepository.save(listing);
+    const savedListing = await this.groupListingRepository.save(listing);
+    
+    // Создаем групповой чат
+    await this.chatService.createGroupChat(savedListing.id, tutorId);
+
+    return savedListing;
   }
 
   async findAll(filter?: { 

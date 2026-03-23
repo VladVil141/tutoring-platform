@@ -78,11 +78,19 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Действия" fixed="right" align="right" width="260">
+          <el-table-column label="Действия" fixed="right" align="right" width="320">
             <template #default="{ row }">
               <div style="display: flex; gap: 8px; justify-content: flex-end;">
                 <el-button size="small" @click="showSeries(row)">
                   Подробнее
+                </el-button>
+                <el-button 
+                  size="small" 
+                  type="warning" 
+                  @click="contactTutor(row)"
+                  style="padding: 5px 15px;"
+                >
+                  Связаться
                 </el-button>
                 <el-button 
                   v-if="canCancelSeries(row)"
@@ -399,10 +407,12 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
+import { useChatStore } from '../stores/chat';
 import { bookingService } from '../services/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
+const chatStore = useChatStore();
 const bookingStore = useBookingStore();
 const groupBookingStore = useGroupBookingStore();
 const loading = ref(false);
@@ -707,8 +717,14 @@ async function leaveGroup(groupListingId: number) {
   }
 }
 
-function contactTutor(row: any) {
-  ElMessage.info('Функция связи будет доступна в Этапе 9');
+async function contactTutor(booking: any) {
+  const tutorId = booking.listing?.tutor_id || booking.tutor_id;
+  if (!tutorId) return;
+  
+  const chat = await chatStore.createPrivateChat(tutorId);
+  if (chat) {
+    router.push(`/chat/private/${chat.id}`);
+  }
 }
 
 onMounted(async () => {

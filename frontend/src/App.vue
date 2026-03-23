@@ -18,6 +18,10 @@
             </el-button>
             
             <template v-if="authStore.isAuthenticated">
+              <!-- Кнопка Сообщения -->
+              <el-button type="text" style="color: white;" @click="$router.push('/chats')">
+                Сообщения
+              </el-button>
               <el-button type="text" style="color: white;" @click="$router.push('/cabinet')">
                 Личный кабинет
               </el-button>
@@ -53,14 +57,37 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, watch } from 'vue';
 import { useAuthStore } from './stores/auth';
 import { useRouter } from 'vue-router';
+import { socketService } from './services/socket';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
+// Подключаем WebSocket при загрузке страницы
+onMounted(() => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    socketService.connect(token);
+  }
+});
+
+// Следим за изменением авторизации
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    const token = localStorage.getItem('token');
+    if (token) {
+      socketService.connect(token);
+    }
+  } else {
+    socketService.disconnect();
+  }
+});
+
 const handleLogout = () => {
   authStore.logout();
+  socketService.disconnect();
   router.push('/');
 };
 </script>

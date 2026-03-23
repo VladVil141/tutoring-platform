@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { GroupBooking, GroupBookingStatus } from './entities/group-booking.entity';
@@ -6,6 +6,7 @@ import { Booking, BookingStatus } from './entities/booking.entity';
 import { CreateGroupBookingDto } from './dto/create-group-booking.dto';
 import { GroupListingsService } from '../listings/group-listings.service';
 import { UsersService } from '../users/users.service';
+import { ChatService } from '../chat/chat.service';
 import { dateUtils } from '../utils/date.utils';
 import * as crypto from 'crypto';
 
@@ -18,6 +19,8 @@ export class GroupBookingsService {
     private bookingRepository: Repository<Booking>,
     private groupListingsService: GroupListingsService,
     private usersService: UsersService,
+    @Inject(forwardRef(() => ChatService))
+    private chatService: ChatService,
   ) {}
 
   // Подать заявку на групповое занятие (ученик)
@@ -158,44 +161,6 @@ async getSeriesForTutor(groupListingId: number, tutorId: number): Promise<Bookin
   });
 }
 
-  // Генерация дат по дням недели
-private generateDatesFromWeekdays(startDate: Date, targetDays: number[], weeks: number): string[] {
-  const dates: string[] = [];
-  const start = new Date(startDate);
-  
-  if (isNaN(start.getTime())) {
-    console.error('Invalid startDate:', startDate);
-    return dates;
-  }
-  
-  const startDay = start.getDay();
-  
-  // Находим первый подходящий день
-  let firstDate = new Date(start);
-  let daysToAdd = 0;
-  
-  while (!targetDays.includes((startDay + daysToAdd) % 7) && daysToAdd < 7) {
-    daysToAdd++;
-  }
-  
-  if (daysToAdd > 0) {
-    firstDate.setDate(start.getDate() + daysToAdd);
-  }
-  
-  // Генерируем даты
-  for (let week = 0; week < weeks; week++) {
-    for (const targetDay of targetDays) {
-      const currentDate = new Date(firstDate);
-      currentDate.setDate(firstDate.getDate() + (targetDay - firstDate.getDay() + 7) % 7 + week * 7);
-      if (!isNaN(currentDate.getTime())) {
-        dates.push(currentDate.toISOString().split('T')[0]);
-      }
-    }
-  }
-  
-  return dates.sort();
-}
-
   // Создать серию занятий для ученика
 private async createSeriesForStudent(studentId: number, groupListing: any): Promise<void> {
   const schedule = groupListing.schedule;
@@ -276,7 +241,6 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
     const booking = await this.findOne(id);
     const groupListing = await this.groupListingsService.findOne(booking.group_listing_id);
     
-    // Проверка прав
     if (groupListing.tutor_id !== tutorId) {
       throw new ForbiddenException('Вы можете одобрять только заявки на свои группы');
     }
@@ -285,23 +249,21 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
       throw new BadRequestException('Можно одобрить только ожидающие заявки');
     }
     
-    // Проверка наличия мест
     if (groupListing.current_students >= groupListing.max_students) {
       throw new BadRequestException('Группа уже заполнена');
     }
     
-    // Обновляем статус
     booking.status = GroupBookingStatus.APPROVED;
     await this.groupBookingRepository.save(booking);
     
-    // Увеличиваем счетчик учеников в группе
     groupListing.current_students += 1;
     await this.groupListingsService.updateCurrentStudents(groupListing.id, groupListing.current_students);
     
-    // 👇 СОЗДАЕМ СЕРИЮ ЗАНЯТИЙ
+    // Добавляем ученика в групповой чат
+    await this.chatService.addMemberToGroupChat(groupListing.id, booking.student_id);
+    
     await this.createSeriesForStudent(booking.student_id, groupListing);
     
-    // Если группа заполнилась — скрываем объявление
     if (groupListing.current_students >= groupListing.max_students) {
       await this.groupListingsService.updateActiveStatus(groupListing.id, false);
     }
@@ -355,7 +317,6 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
       throw new NotFoundException('Вы не состоите в этой группе');
     }
     
-    // Находим все созданные занятия для этого ученика по этой группе
     const bookings = await this.bookingRepository.find({
       where: {
         student_id: studentId,
@@ -364,7 +325,6 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
       }
     });
     
-    // Отменяем все будущие занятия
     const today = new Date().toISOString().split('T')[0];
     for (const booking of bookings) {
       if (booking.date >= today) {
@@ -373,15 +333,15 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
       }
     }
     
-    // Удаляем групповую заявку
     await this.groupBookingRepository.remove(groupBooking);
     
-    // Уменьшаем счетчик учеников
     const groupListing = await this.groupListingsService.findOne(groupListingId);
     groupListing.current_students -= 1;
     await this.groupListingsService.updateCurrentStudents(groupListing.id, groupListing.current_students);
     
-    // Если группа была скрыта, показываем обратно
+    // Удаляем ученика из группового чата
+    await this.chatService.removeMemberFromGroupChat(groupListingId, studentId);
+    
     if (!groupListing.is_active && groupListing.current_students < groupListing.max_students) {
       await this.groupListingsService.updateActiveStatus(groupListing.id, true);
     }

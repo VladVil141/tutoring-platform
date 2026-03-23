@@ -129,6 +129,15 @@
             >
               {{ getApplyButtonText() }}
             </el-button>
+
+            <el-button 
+              v-if="!isOwner && authStore.isAuthenticated && authStore.isStudent"
+              type="info" 
+              size="large" 
+              @click="contactTutor"
+            >
+              Написать репетитору
+            </el-button>
             
             <!-- Для владельца (репетитора) -->
             <el-button 
@@ -162,6 +171,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGroupListingStore } from '../stores/groupListing';
 import { useAuthStore } from '../stores/auth';
+import { useChatStore } from '../stores/chat';
 import { ArrowLeft, Location, Calendar } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useGroupBookingStore } from '../stores/groupBooking';
@@ -170,6 +180,7 @@ const route = useRoute();
 const router = useRouter();
 const groupStore = useGroupListingStore();
 const authStore = useAuthStore();
+const chatStore = useChatStore();
 const groupBookingStore = useGroupBookingStore();
 
 const loading = ref(false);
@@ -203,6 +214,15 @@ async function checkBookingStatus() {
     } else if (existing.status === 'approved') {
       isInGroup.value = true;
     }
+  }
+}
+
+async function contactTutor() {
+  if (!listing.value) return;
+  
+  const chat = await chatStore.createPrivateChat(listing.value.tutor_id);
+  if (chat) {
+    router.push(`/chat/private/${chat.id}`);
   }
 }
 

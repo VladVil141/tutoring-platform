@@ -66,6 +66,14 @@
 
           <!-- Кнопки действий -->
           <div class="action-buttons">
+            <el-button 
+              v-if="booking.status === 'confirmed'"
+              type="warning" 
+              size="large"
+              @click="contact"
+            >
+              Связаться
+            </el-button>
             <!-- Для ученика -->
             <template v-if="authStore.isStudent">
               <el-button 
@@ -143,6 +151,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useBookingStore } from '../stores/booking';
 import { useAuthStore } from '../stores/auth';
+import { useChatStore } from '../stores/chat';
 import { ArrowLeft } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -150,6 +159,7 @@ const route = useRoute();
 const router = useRouter();
 const bookingStore = useBookingStore();
 const authStore = useAuthStore();
+const chatStore = useChatStore();
 
 const loading = ref(false);
 const actionLoading = ref(false);
@@ -212,6 +222,16 @@ function getStatusText(status: string) {
 
 function goToTutorProfile(tutorId: number) {
   router.push(`/profile/${tutorId}`);
+}
+
+async function contact() {
+  if (!booking.value) return;
+  
+  const otherId = authStore.isStudent ? booking.value.tutor_id : booking.value.student_id;
+  const chat = await chatStore.createPrivateChat(otherId);
+  if (chat) {
+    router.push(`/chat/private/${chat.id}`);
+  }
 }
 
 async function confirmBooking() {

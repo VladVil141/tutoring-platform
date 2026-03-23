@@ -113,14 +113,30 @@ export const scheduleService = {
 };
 
 export const attendanceService = {
-  // Получить дневник репетитора
   getTutorAttendances: (params?: any) => api.get('/attendances/tutor', { params }),
-  
-  // Получить одну запись
   getOne: (id: number) => api.get(`/attendances/${id}`),
-  
-  // Обновить запись
   update: (id: number, data: any) => api.put(`/attendances/${id}`, data),
+};
+
+export const chatService = {
+  // Получить все чаты
+  getChats: () => api.get('/chat/chats'),
+  
+  // Создать личный чат
+  createPrivateChat: (tutorId: number) => api.post('/chat/private', { tutor_id: tutorId }),
+  
+  // Получить сообщения чата
+  getMessages: (type: 'private' | 'group', chatId: number, limit?: number) => 
+    api.get(`/chat/${type}/${chatId}/messages`, { params: { limit } }),
+  
+  // Удалить личный чат
+  deletePrivateChat: (chatId: number) => api.delete(`/chat/private/${chatId}`),
+  
+  // Удалить групповой чат у себя
+  deleteGroupChat: (chatId: number) => api.delete(`/chat/group/${chatId}`),
+  
+  // Удалить групповой чат для всех (только репетитор)
+  deleteGroupChatForAll: (chatId: number) => api.delete(`/chat/group/${chatId}/all`),
 };
 
 export default api;
