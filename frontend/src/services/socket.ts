@@ -5,8 +5,6 @@ class SocketService {
   private listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
   connect(token: string) {
-    console.log('Connecting WebSocket with token:', token); // 👈 добавить
-
     if (this.socket?.connected) return;
 
     this.socket = io('http://localhost:3000', {
