@@ -12,6 +12,9 @@ pnpm-lock.yaml
 .env.development
 .env.test
 
+# Structure project
+.backend-files.txt
+
 # Secrets and keys
 *.key
 *.pem
