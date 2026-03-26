@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { bookingService } from '../services/api';
+import { socketService } from '../services/socket';
 import { ElMessage } from 'element-plus';
 
 export interface Booking {
@@ -47,7 +48,41 @@ export const useBookingStore = defineStore('booking', () => {
   const currentRecurring = ref<Booking[]>([]);
   const loading = ref(false);
 
-  // Создать разовую заявку
+  // 👇 Инициализация WebSocket слушателей
+  function initWebSocketListeners() {
+    // Новая заявка (для репетитора)
+    socketService.on('booking:new', (data) => {
+      console.log('📡 [booking] Новая заявка:', data);
+      fetchTutorBookings();
+      ElMessage.info(`Новая заявка от ${data.studentName}`);
+    });
+
+    // Изменение статуса заявки (для обеих сторон)
+    socketService.on('booking:updated', (data) => {
+      console.log('📡 [booking] Статус изменен:', data);
+      fetchMyBookings();
+      fetchTutorBookings();
+      
+      const statusText = getStatusText(data.status);
+      ElMessage.info(`Статус заявки #${data.id}: ${statusText}`);
+    });
+
+    // Обновление календаря
+    socketService.on('calendar:updated', (data) => {
+      console.log('📡 [booking] Календарь обновлен:', data);
+    });
+  }
+
+  function getStatusText(status: string): string {
+    const map: Record<string, string> = {
+      pending: 'ожидает',
+      confirmed: 'подтверждена',
+      cancelled: 'отменена',
+      completed: 'завершена',
+    };
+    return map[status] || status;
+  }
+
   async function createBooking(data: any) {
     try {
       loading.value = true;
@@ -62,7 +97,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Создать регулярные занятия
   async function createRecurring(data: any) {
     try {
       loading.value = true;
@@ -77,7 +111,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить мои заявки (ученик)
   async function fetchMyBookings(params?: any) {
     try {
       loading.value = true;
@@ -92,7 +125,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить заявки ко мне (репетитор)
   async function fetchTutorBookings(params?: any) {
     try {
       loading.value = true;
@@ -107,7 +139,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить одну заявку
   async function fetchBooking(id: number) {
     try {
       loading.value = true;
@@ -121,7 +152,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить серию занятий (регулярные)
   async function fetchRecurring(recurringId: string) {
     try {
       loading.value = true;
@@ -136,7 +166,6 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить серию групповых занятий
   async function fetchGroupSeries(groupListingId: number) {
     try {
       loading.value = true;
@@ -150,21 +179,19 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  // Получить серию групповых занятий для репетитора
-async function fetchGroupSeriesForTutor(groupListingId: number) {
-  try {
-    loading.value = true;
-    const response = await bookingService.getGroupSeriesForTutor(groupListingId);
-    return response.data;
-  } catch (error: any) {
-    ElMessage.error('Ошибка загрузки расписания');
-    return [];
-  } finally {
-    loading.value = false;
+  async function fetchGroupSeriesForTutor(groupListingId: number) {
+    try {
+      loading.value = true;
+      const response = await bookingService.getGroupSeriesForTutor(groupListingId);
+      return response.data;
+    } catch (error: any) {
+      ElMessage.error('Ошибка загрузки расписания');
+      return [];
+    } finally {
+      loading.value = false;
+    }
   }
-}
 
-  // Отменить всю серию (регулярные)
   async function cancelRecurring(recurringId: string) {
     try {
       loading.value = true;
@@ -179,7 +206,6 @@ async function fetchGroupSeriesForTutor(groupListingId: number) {
     }
   }
 
-  // Подтвердить заявку (репетитор)
   async function confirmBooking(id: number) {
     try {
       loading.value = true;
@@ -198,7 +224,6 @@ async function fetchGroupSeriesForTutor(groupListingId: number) {
     }
   }
 
-  // Отменить заявку (ученик или репетитор)
   async function cancelBooking(id: number, role: 'student' | 'tutor') {
     try {
       loading.value = true;
@@ -222,7 +247,6 @@ async function fetchGroupSeriesForTutor(groupListingId: number) {
     }
   }
 
-  // Отметить как выполненное (репетитор)
   async function completeBooking(id: number) {
     try {
       loading.value = true;
@@ -241,7 +265,6 @@ async function fetchGroupSeriesForTutor(groupListingId: number) {
     }
   }
 
-  // Проверить доступность времени
   async function checkAvailability(listingId: number, date: string, time: string) {
     try {
       const response = await bookingService.checkAvailability(listingId, date, time);
@@ -257,6 +280,7 @@ async function fetchGroupSeriesForTutor(groupListingId: number) {
     currentBooking,
     currentRecurring,
     loading,
+    initWebSocketListeners,
     createBooking,
     createRecurring,
     fetchMyBookings,

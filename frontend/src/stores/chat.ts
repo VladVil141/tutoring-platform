@@ -55,6 +55,80 @@ export const useChatStore = defineStore('chat', () => {
   const groupChats = ref<GroupChat[]>([]);
   const currentMessages = ref<Message[]>([]);
   const loading = ref(false);
+  
+  // 👇 Хранилище сообщений по чатам (для превью в списке)
+  const messagesByChat = ref<Map<string, Message[]>>(new Map());
+  const unreadCounts = ref<Map<string, number>>(new Map());
+
+  // 👇 Получить ключ чата
+function getChatKey(chatType: 'private' | 'group', chatId: number): string {
+  return `${chatType}:${chatId}`;
+}
+
+// 👇 Получить сообщения для чата (для превью)
+function getMessagesForChat(chatId: number): Message[] {
+  const key = getChatKey('private', chatId);
+  const messages = messagesByChat.value.get(key);
+  return messages || [];
+}
+
+// 👇 Получить последнее сообщение для чата
+function getLastMessageForChat(chatId: number): string {
+  const messages = getMessagesForChat(chatId);
+  if (!messages || messages.length === 0) return 'Нет сообщений';
+  
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage?.text) return 'Нет сообщений';
+  
+  const text = lastMessage.text;
+  return text.length > 50 ? text.substring(0, 50) + '...' : text;
+}
+
+  // 👇 Получить количество непрочитанных сообщений
+  function getUnreadCount(chatId: number): number {
+    const key = getChatKey('private', chatId);
+    return unreadCounts.value.get(key) || 0;
+  }
+
+  // 👇 Добавить сообщение и обновить непрочитанные
+  function addMessage(message: Message) {
+    // Добавляем в текущий чат, если открыт
+    if (currentMessages.value.some(m => m.id === message.id)) return;
+    currentMessages.value.push(message);
+    
+    // Сохраняем в общее хранилище для превью
+    const key = getChatKey(message.chat_type, message.chat_id);
+    if (!messagesByChat.value.has(key)) {
+      messagesByChat.value.set(key, []);
+    }
+    messagesByChat.value.get(key)!.push(message);
+    
+    // Увеличиваем счетчик непрочитанных (если это не текущий открытый чат)
+    // TODO: нужно знать текущий открытый чат
+  }
+
+  // 👇 Загрузить все чаты и последние сообщения
+  async function fetchChatsWithMessages() {
+    await fetchChats();
+    // Загружаем последние сообщения для каждого чата
+    for (const chat of privateChats.value) {
+      await fetchMessagesForPreview('private', chat.id);
+    }
+    for (const chat of groupChats.value) {
+      await fetchMessagesForPreview('group', chat.id);
+    }
+  }
+
+  // 👇 Загрузить последние сообщения для превью
+  async function fetchMessagesForPreview(chatType: 'private' | 'group', chatId: number, limit: number = 1) {
+    try {
+      const response = await chatService.getMessages(chatType, chatId, limit);
+      const key = getChatKey(chatType, chatId);
+      messagesByChat.value.set(key, response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки сообщений для превью:', error);
+    }
+  }
 
   // Загрузить все чаты
   async function fetchChats() {
@@ -88,6 +162,14 @@ export const useChatStore = defineStore('chat', () => {
       loading.value = true;
       const response = await chatService.getMessages(chatType, chatId);
       currentMessages.value = response.data;
+      
+      // Сохраняем в общее хранилище
+      const key = getChatKey(chatType, chatId);
+      messagesByChat.value.set(key, response.data);
+      
+      // Сбрасываем счетчик непрочитанных для этого чата
+      unreadCounts.value.set(key, 0);
+      
       return response.data;
     } catch (error) {
       ElMessage.error('Ошибка загрузки сообщений');
@@ -102,12 +184,6 @@ export const useChatStore = defineStore('chat', () => {
     socketService.send('send_message', { chat_type: chatType, chat_id: chatId, text });
   }
 
-  // Добавить сообщение в текущий чат (при получении нового)
-  function addMessage(message: Message) {
-    if (currentMessages.value.some(m => m.id === message.id)) return;
-    currentMessages.value.push(message);
-  }
-
   // Удалить сообщение из чата
   function removeMessage(messageId: number) {
     currentMessages.value = currentMessages.value.filter(m => m.id !== messageId);
@@ -120,7 +196,6 @@ export const useChatStore = defineStore('chat', () => {
       const message = currentMessages.value[index];
       if (message) {
         if (data.deleted_for_all) {
-          // Удаляем сообщение полностью
           currentMessages.value.splice(index, 1);
         } else if (data.deleted_for_user_id) {
           message.text = '[Сообщение удалено для пользователя]';
@@ -175,8 +250,10 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages,
     loading,
     fetchChats,
+    fetchChatsWithMessages,
     createPrivateChat,
     fetchMessages,
+    fetchMessagesForPreview,
     sendMessage,
     addMessage,
     removeMessage,
@@ -185,5 +262,8 @@ export const useChatStore = defineStore('chat', () => {
     deleteGroupChat,
     deleteGroupChatForAll,
     clearMessages,
+    getMessagesForChat,
+    getLastMessageForChat,
+    getUnreadCount,
   };
 });

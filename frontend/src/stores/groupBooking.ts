@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { groupBookingService } from '../services/api';
+import { socketService } from '../services/socket';
 import { ElMessage } from 'element-plus';
 
 export interface GroupBooking {
@@ -41,7 +42,34 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
   const tutorBookings = ref<GroupBooking[]>([]);
   const loading = ref(false);
 
-  // Подать заявку
+  // 👇 Инициализация WebSocket слушателей
+  function initWebSocketListeners() {
+    // Новая групповая заявка (для репетитора)
+    socketService.on('group_booking:new', (data) => {
+      console.log('📡 [groupBooking] Новая групповая заявка:', data);
+      fetchTutorBookings();
+      ElMessage.info(`Новая заявка в группу "${data.groupTitle}" от ${data.studentName}`);
+    });
+
+    // Изменение статуса групповой заявки
+    socketService.on('group_booking:status_changed', (data) => {
+      console.log('📡 [groupBooking] Статус изменен:', data);
+      fetchMyBookings();
+      fetchTutorBookings();
+      
+      const statusText = data.status === 'approved' ? 'одобрена' : 'отклонена';
+      ElMessage.info(`Заявка в группу "${data.groupTitle}" ${statusText}`);
+    });
+
+    // Изменение состава группы
+    socketService.on('group:students_changed', (data) => {
+      console.log('📡 [groupBooking] Состав группы изменен:', data);
+      // Обновляем списки, чтобы показать актуальное количество
+      fetchMyBookings();
+      fetchTutorBookings();
+    });
+  }
+
   async function createBooking(groupListingId: number) {
     try {
       loading.value = true;
@@ -56,7 +84,6 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Получить мои заявки (ученик)
   async function fetchMyBookings() {
     try {
       loading.value = true;
@@ -71,7 +98,6 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Получить заявки ко мне (репетитор)
   async function fetchTutorBookings() {
     try {
       loading.value = true;
@@ -86,7 +112,6 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Одобрить заявку (репетитор)
   async function approveBooking(id: number) {
     try {
       loading.value = true;
@@ -105,7 +130,6 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Отклонить заявку (репетитор)
   async function rejectBooking(id: number) {
     try {
       loading.value = true;
@@ -124,7 +148,6 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Отменить свою заявку (ученик)
   async function cancelBooking(id: number) {
     try {
       loading.value = true;
@@ -142,13 +165,11 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     }
   }
 
-  // Выйти из группы (ученик)
   async function leaveGroup(groupListingId: number) {
     try {
       loading.value = true;
       await groupBookingService.leaveGroup(groupListingId);
       
-      // Обновляем список
       await fetchMyBookings();
       
       ElMessage.success('Вы вышли из группы');
@@ -165,6 +186,7 @@ export const useGroupBookingStore = defineStore('groupBooking', () => {
     myBookings,
     tutorBookings,
     loading,
+    initWebSocketListeners,
     createBooking,
     fetchMyBookings,
     fetchTutorBookings,

@@ -6,6 +6,7 @@ import { Booking, BookingStatus } from './entities/booking.entity';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { dateUtils } from '../utils/date.utils';
+import { EventsService } from '../events/events.service';  // 👈 ДОБАВИТЬ
 
 @Injectable()
 export class AttendanceService {
@@ -14,22 +15,23 @@ export class AttendanceService {
     private attendanceRepository: Repository<Attendance>,
     @InjectRepository(Booking)
     private bookingRepository: Repository<Booking>,
+    private eventsService: EventsService,  // 👈 ДОБАВИТЬ
   ) {}
 
   // Создать запись посещения (вызывается при подтверждении заявки)
   async createFromBooking(booking: Booking): Promise<Attendance> {
-  const attendance = new Attendance();
-  attendance.booking_id = booking.id;
-  attendance.student_id = booking.student_id;
-  attendance.tutor_id = booking.tutor_id;
-  attendance.date = booking.date;
-  attendance.time = booking.time;
-  attendance.visited = false;
-  attendance.paid = false;
-  attendance.notes = null;
+    const attendance = new Attendance();
+    attendance.booking_id = booking.id;
+    attendance.student_id = booking.student_id;
+    attendance.tutor_id = booking.tutor_id;
+    attendance.date = booking.date;
+    attendance.time = booking.time;
+    attendance.visited = false;
+    attendance.paid = false;
+    attendance.notes = null;
 
-  return await this.attendanceRepository.save(attendance);
-}
+    return await this.attendanceRepository.save(attendance);
+  }
 
   // Получить записи для репетитора
   async getTutorAttendances(tutorId: number, query: AttendanceQueryDto): Promise<Attendance[]> {
@@ -58,65 +60,87 @@ export class AttendanceService {
   }
 
   // Обновить запись посещения
-async updateAttendance(id: number, tutorId: number, updateDto: UpdateAttendanceDto): Promise<Attendance> {
-  const attendance = await this.attendanceRepository.findOne({
-    where: { id },
-    relations: ['booking', 'booking.listing', 'student', 'student.profile'],
-  });
+  async updateAttendance(id: number, tutorId: number, updateDto: UpdateAttendanceDto): Promise<Attendance> {
+    const attendance = await this.attendanceRepository.findOne({
+      where: { id },
+      relations: ['booking', 'booking.listing', 'student', 'student.profile'],
+    });
 
-  if (!attendance) {
-    throw new NotFoundException('Запись не найдена');
+    if (!attendance) {
+      throw new NotFoundException('Запись не найдена');
+    }
+
+    if (attendance.tutor_id !== tutorId) {
+      throw new ForbiddenException('Вы можете редактировать только свои записи');
+    }
+
+    // Сохраняем старое состояние для проверки изменений
+    const wasVisited = attendance.visited;
+    const wasPaid = attendance.paid;
+
+    // Обновляем поля
+    if (updateDto.visited !== undefined) {
+      attendance.visited = updateDto.visited;
+    }
+    if (updateDto.paid !== undefined) {
+      attendance.paid = updateDto.paid;
+    }
+    if (updateDto.notes !== undefined) {
+      attendance.notes = updateDto.notes;
+    }
+
+    const saved = await this.attendanceRepository.save(attendance);
+
+    // 👈 УВЕДОМЛЕНИЕ ОБ ОТМЕТКЕ ПОСЕЩЕНИЯ (если изменилось)
+    if (updateDto.visited !== undefined && updateDto.visited !== wasVisited) {
+      // Загружаем полные данные для уведомления
+      const fullAttendance = await this.attendanceRepository.findOne({
+        where: { id: saved.id },
+        relations: ['booking', 'booking.listing', 'student', 'student.profile'],
+      });
+      if (fullAttendance) {
+        this.eventsService.notifyAttendanceMarked(fullAttendance);
+      }
+    }
+
+    // Если и посещение, и оплата отмечены — завершаем заявку
+    if (saved.visited && saved.paid) {
+      const booking = await this.bookingRepository.findOne({
+        where: { id: attendance.booking_id },
+        relations: ['student', 'student.profile', 'tutor', 'tutor.profile']
+      });
+      
+      if (booking && booking.status === BookingStatus.CONFIRMED) {
+        booking.status = BookingStatus.COMPLETED;
+        const updatedBooking = await this.bookingRepository.save(booking);
+        
+        // 👈 УВЕДОМЛЕНИЕ О ЗАВЕРШЕНИИ ЗАЯВКИ
+        this.eventsService.notifyBookingUpdated(updatedBooking);
+        
+        console.log('Заявка #' + booking.id + ' обновлена на COMPLETED');
+      }
+    }
+
+    // Возвращаем обновленную запись с полными связями
+    const result = await this.attendanceRepository.findOne({
+      where: { id: saved.id },
+      relations: ['booking', 'booking.listing', 'student', 'student.profile'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Запись не найдена после обновления');
+    }
+
+    // Конвертируем даты в локальное время (для +9 UTC)
+    const local = dateUtils.toLocal(result.date, result.time);
+    
+    // Возвращаем объект с правильными типами
+    return {
+      ...result,
+      date: local.date,
+      time: local.time,
+    };
   }
-
-  if (attendance.tutor_id !== tutorId) {
-    throw new ForbiddenException('Вы можете редактировать только свои записи');
-  }
-
-  // Обновляем поля
-  if (updateDto.visited !== undefined) {
-    attendance.visited = updateDto.visited;
-  }
-  if (updateDto.paid !== undefined) {
-    attendance.paid = updateDto.paid;
-  }
-  if (updateDto.notes !== undefined) {
-    attendance.notes = updateDto.notes;
-  }
-
-  const saved = await this.attendanceRepository.save(attendance);
-
-  // Если и посещение, и оплата отмечены — завершаем заявку
-if (saved.visited && saved.paid) {
-  const booking = await this.bookingRepository.findOne({
-    where: { id: attendance.booking_id },
-  });
-  if (booking && booking.status === BookingStatus.CONFIRMED) {
-    booking.status = BookingStatus.COMPLETED;
-    await this.bookingRepository.save(booking);
-    console.log('Заявка #' + booking.id + ' обновлена на COMPLETED'); // 👈 добавить для отладки
-  }
-}
-
-  // Возвращаем обновленную запись с полными связями
-  const result = await this.attendanceRepository.findOne({
-    where: { id: saved.id },
-    relations: ['booking', 'booking.listing', 'student', 'student.profile'],
-  });
-
-  if (!result) {
-    throw new NotFoundException('Запись не найдена после обновления');
-  }
-
-  // Конвертируем даты в локальное время (для +9 UTC)
-  const local = dateUtils.toLocal(result.date, result.time);
-  
-  // Возвращаем объект с правильными типами
-  return {
-    ...result,
-    date: local.date,
-    time: local.time,
-  };
-}
 
   // Получить одну запись
   async findOne(id: number, tutorId: number): Promise<Attendance> {

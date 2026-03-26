@@ -8,11 +8,12 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'));
   const token = ref<string | null>(localStorage.getItem('token'));
   const loading = ref(false);
-  const profile = ref<any>(null); // Добавляем profile
+  const profile = ref<any>(null);
 
   const isAuthenticated = computed(() => !!token.value);
   const isTutor = computed(() => user.value?.role === 'tutor');
   const isStudent = computed(() => user.value?.role === 'student');
+  const userId = computed(() => user.value?.id || null);
 
   async function register(data: RegisterRequest) {
     try {
@@ -39,7 +40,6 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('token', token.value ?? '');
       localStorage.setItem('user', JSON.stringify(user.value));
       
-      // Загружаем профиль после входа
       await fetchProfile();
       
       ElMessage.success('Вход выполнен успешно');
@@ -52,7 +52,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Новый метод: загрузка профиля
   async function fetchProfile() {
     try {
       const response = await userService.getMe();
@@ -64,12 +63,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Новый метод: обновление профиля
   async function updateProfile(data: any) {
-  try {
+    try {
       loading.value = true;
-      // ✅ Убираем is_public из данных
-      const { is_public, ...cleanData } = data; // если вдруг осталось
+      const { is_public, ...cleanData } = data;
       const response = await userService.updateProfile(cleanData);
       profile.value = response.data;
       ElMessage.success('Профиль обновлен');
@@ -85,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     token.value = null;
     user.value = null;
-    profile.value = null; // Очищаем profile
+    profile.value = null;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     ElMessage.success('Выход выполнен');
@@ -94,15 +91,16 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     token,
-    profile, // Добавляем в возвращаемые значения
+    profile,
     loading,
     isAuthenticated,
     isTutor,
     isStudent,
+    userId,
     register,
     login,
     logout,
-    fetchProfile, // Добавляем метод
-    updateProfile // Добавляем метод
+    fetchProfile,
+    updateProfile
   };
 });

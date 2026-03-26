@@ -112,10 +112,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAttendanceStore } from '../stores/attendance';
 import { useAuthStore } from '../stores/auth';
+import { socketService } from '../services/socket';
 import { Edit } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -132,6 +133,31 @@ const notesModalVisible = ref(false);
 const notesLoading = ref(false);
 const currentAttendance = ref<any>(null);
 const notesForm = ref({ text: '' });
+
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Отметка посещения
+  socketService.on('attendance:marked', (data) => {
+    console.log('📡 [Attendance] Отметка посещения:', data);
+    loadAttendances();
+    ElMessage.info(`Отметка посещения: занятие ${data.attended ? 'посещено' : 'пропущено'}`);
+  });
+
+  // Перенос занятия
+  socketService.on('reschedule:status_changed', (data) => {
+    console.log('📡 [Attendance] Перенос занятия:', data);
+    if (data.status === 'confirmed') {
+      loadAttendances();
+      ElMessage.info(`Занятие перенесено на новое время`);
+    }
+  });
+
+  // Изменение статуса заявки
+  socketService.on('booking:updated', (data) => {
+    console.log('📡 [Attendance] Статус заявки изменен:', data);
+    loadAttendances();
+  });
+}
 
 // Список учеников для фильтра
 const students = computed(() => {
@@ -155,6 +181,12 @@ function formatDisplayDate(dateStr: string): string {
 }
 
 async function loadAttendances() {
+  // 👈 ПРОВЕРКА: если не репетитор, не загружаем
+  if (!authStore.isTutor) {
+    console.log('📡 [AttendanceView] Пропускаем загрузку: пользователь не репетитор');
+    return;
+  }
+  
   const params: any = {};
   if (dateRange.value) {
     params.start_date = dateRange.value[0];
@@ -184,7 +216,6 @@ async function confirmUpdate(row: any, field: string, value: boolean) {
     
     await updateAttendance(row, field, value);
   } catch (error) {
-    // Пользователь отменил действие — возвращаем чекбокс
     row[field] = !value;
   }
 }
@@ -234,11 +265,19 @@ function resetFilters() {
 }
 
 onMounted(async () => {
+  // 👈 ПРОВЕРКА: если не репетитор, перенаправляем
   if (!authStore.isAuthenticated || !authStore.isTutor) {
+    console.log('📡 [AttendanceView] Редирект: пользователь не репетитор');
     router.push('/');
     return;
   }
+  
   await loadAttendances();
+  initWebSocketListeners();
+});
+
+onUnmounted(() => {
+  // Очистка (опционально)
 });
 </script>
 

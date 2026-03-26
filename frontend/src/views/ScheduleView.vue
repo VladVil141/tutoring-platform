@@ -122,10 +122,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useScheduleStore } from '../stores/schedule';
 import { useAuthStore } from '../stores/auth';
+import { socketService } from '../services/socket';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 
 const router = useRouter();
@@ -139,6 +140,44 @@ const events = computed(() => scheduleStore.events);
 
 const isStudent = computed(() => authStore.isStudent);
 const isTutor = computed(() => authStore.isTutor);
+
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Обновление календаря при изменении заявок
+  socketService.on('booking:updated', () => {
+    console.log('📡 [Schedule] Обновляем календарь (booking:updated)');
+    loadSchedule();
+  });
+
+  socketService.on('booking:new', () => {
+    console.log('📡 [Schedule] Обновляем календарь (booking:new)');
+    loadSchedule();
+  });
+
+  // Обновление при переносах
+  socketService.on('reschedule:status_changed', () => {
+    console.log('📡 [Schedule] Обновляем календарь (reschedule)');
+    loadSchedule();
+  });
+
+  // Обновление при отметке посещения
+  socketService.on('attendance:marked', () => {
+    console.log('📡 [Schedule] Обновляем календарь (attendance)');
+    loadSchedule();
+  });
+
+  // Обновление при изменении состава группы
+  socketService.on('group:students_changed', () => {
+    console.log('📡 [Schedule] Обновляем календарь (group)');
+    loadSchedule();
+  });
+
+  // Обновление при изменении статуса групповой заявки
+  socketService.on('group_booking:status_changed', () => {
+    console.log('📡 [Schedule] Обновляем календарь (group_booking)');
+    loadSchedule();
+  });
+}
 
 // Часы (с 8:00 до 22:00)
 const hours = Array.from({ length: 15 }, (_, i) => i + 8);
@@ -393,6 +432,13 @@ async function loadSchedule() {
 
 onMounted(() => {
   loadSchedule();
+  // 👈 Инициализируем WebSocket слушатели
+  initWebSocketListeners();
+});
+
+// 👈 Отписка при размонтировании
+onUnmounted(() => {
+  // Удаление слушателей (опционально)
 });
 </script>
 

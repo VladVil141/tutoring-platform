@@ -90,10 +90,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useChatStore } from '../../stores/chat';
 import { useAuthStore } from '../../stores/auth';
+import { socketService } from '../../services/socket';
 import { ElMessage } from 'element-plus';
 
 const router = useRouter();
@@ -124,7 +125,15 @@ const filteredGroupChats = computed(() => {
   );
 });
 
-// Вспомогательные функции
+// 👇 Используем методы из store
+function getLastMessage(chatId: number): string {
+  return chatStore.getLastMessageForChat(chatId);
+}
+
+function hasUnread(chatId: number): boolean {
+  return chatStore.getUnreadCount(chatId) > 0;
+}
+
 function getChatName(chat: any): string {
   if (authStore.isStudent) {
     return `${chat.tutor.profile.first_name} ${chat.tutor.profile.last_name}`;
@@ -147,16 +156,6 @@ function getChatAvatar(chat: any): string {
   } else {
     return chat.student.profile.avatar_url || '';
   }
-}
-
-function getLastMessage(chatId: number): string {
-  // TODO: получить последнее сообщение из store
-  return '';
-}
-
-function hasUnread(chatId: number): boolean {
-  // TODO: проверить непрочитанные сообщения
-  return false;
 }
 
 function openChat(type: 'private' | 'group', id: number, name: string) {
@@ -185,13 +184,27 @@ async function createChat() {
   }
 }
 
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Новое сообщение - обновляем список чатов
+  socketService.on('new_message', (data) => {
+    console.log('📡 [ChatList] Новое сообщение:', data);
+    // Обновляем последнее сообщение для этого чата
+    chatStore.fetchMessagesForPreview(data.chat_type, data.chat_id);
+    // Обновляем список чатов (чтобы показать обновленное время)
+    chatStore.fetchChats();
+  });
+}
+
 onMounted(async () => {
   await chatStore.fetchChats();
-  
-  // Подписываемся на новые сообщения
-  // socketService.on('new_message', (message) => {
-  //   chatStore.addMessage(message);
-  // });
+  // Загружаем последние сообщения для каждого чата
+  await chatStore.fetchChatsWithMessages();
+  initWebSocketListeners();
+});
+
+onUnmounted(() => {
+  // Очистка слушателей (опционально)
 });
 </script>
 

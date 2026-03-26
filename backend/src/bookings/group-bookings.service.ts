@@ -8,6 +8,7 @@ import { GroupListingsService } from '../listings/group-listings.service';
 import { UsersService } from '../users/users.service';
 import { ChatService } from '../chat/chat.service';
 import { dateUtils } from '../utils/date.utils';
+import { EventsService } from '../events/events.service';  // 👈 ДОБАВИТЬ
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class GroupBookingsService {
     private usersService: UsersService,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
+    private eventsService: EventsService,  // 👈 ДОБАВИТЬ
   ) {}
 
   // Подать заявку на групповое занятие (ученик)
@@ -71,7 +73,13 @@ export class GroupBookingsService {
       status: GroupBookingStatus.PENDING,
     });
     
-    return await this.groupBookingRepository.save(groupBooking);
+    const savedBooking = await this.groupBookingRepository.save(groupBooking);
+    
+    // 👈 УВЕДОМЛЕНИЕ О НОВОЙ ГРУППОВОЙ ЗАЯВКЕ
+    const fullBooking = await this.findOne(savedBooking.id);
+    this.eventsService.notifyNewGroupBooking(fullBooking);
+    
+    return savedBooking;
   }
 
   // Получить мои заявки (для ученика)
@@ -108,7 +116,7 @@ export class GroupBookingsService {
   async findOne(id: number): Promise<GroupBooking> {
     const booking = await this.groupBookingRepository.findOne({
       where: { id },
-      relations: ['student', 'student.profile', 'group_listing', 'group_listing.tutor'],
+      relations: ['student', 'student.profile', 'group_listing', 'group_listing.tutor', 'group_listing.tutor.profile'],
     });
     
     if (!booking) {
@@ -119,122 +127,122 @@ export class GroupBookingsService {
   }
 
   // Получить серию занятий по группе
-async getSeries(groupListingId: number, studentId: number): Promise<Booking[]> {
-  const bookings = await this.bookingRepository.find({
-    where: {
-      student_id: studentId,
-      group_booking_id: groupListingId
-    },
-    order: { date: 'ASC', time: 'ASC' }
-  });
-  
-  // Конвертируем UTC в локальное время
-  return bookings.map(booking => {
-    const local = dateUtils.toLocal(booking.date, booking.time);
-    return {
-      ...booking,
-      date: local.date,
-      time: local.time
-    };
-  });
-}
+  async getSeries(groupListingId: number, studentId: number): Promise<Booking[]> {
+    const bookings = await this.bookingRepository.find({
+      where: {
+        student_id: studentId,
+        group_booking_id: groupListingId
+      },
+      order: { date: 'ASC', time: 'ASC' }
+    });
+    
+    // Конвертируем UTC в локальное время
+    return bookings.map(booking => {
+      const local = dateUtils.toLocal(booking.date, booking.time);
+      return {
+        ...booking,
+        date: local.date,
+        time: local.time
+      };
+    });
+  }
 
   // Получить серию занятий по группе для репетитора
-async getSeriesForTutor(groupListingId: number, tutorId: number): Promise<Booking[]> {
-  const bookings = await this.bookingRepository.find({
-    where: {
-      tutor_id: tutorId,
-      group_booking_id: groupListingId
-    },
-    relations: ['student', 'student.profile', 'listing'],
-    order: { date: 'ASC', time: 'ASC' }
-  });
-  
-  // Конвертируем UTC в локальное время
-  return bookings.map(booking => {
-    const local = dateUtils.toLocal(booking.date, booking.time);
-    return {
-      ...booking,
-      date: local.date,
-      time: local.time
-    };
-  });
-}
+  async getSeriesForTutor(groupListingId: number, tutorId: number): Promise<Booking[]> {
+    const bookings = await this.bookingRepository.find({
+      where: {
+        tutor_id: tutorId,
+        group_booking_id: groupListingId
+      },
+      relations: ['student', 'student.profile', 'listing'],
+      order: { date: 'ASC', time: 'ASC' }
+    });
+    
+    // Конвертируем UTC в локальное время
+    return bookings.map(booking => {
+      const local = dateUtils.toLocal(booking.date, booking.time);
+      return {
+        ...booking,
+        date: local.date,
+        time: local.time
+      };
+    });
+  }
 
   // Создать серию занятий для ученика
-private async createSeriesForStudent(studentId: number, groupListing: any): Promise<void> {
-  const schedule = groupListing.schedule;
-  const weeks = groupListing.weeks || 4;
-  
-  // Парсим расписание: "ПН/СР 09:00" -> дни ["ПН", "СР"] и время "09:00"
-  const [daysStr, time] = schedule.split(' ');
-  const days = daysStr.split('/');
-  
-  // Маппинг дней недели
-  const dayMap: Record<string, number> = {
-    'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
-  };
-  
-  const targetDays = days.map(d => dayMap[d]);
-  
-  // Генерируем даты на следующие weeks недель (в UTC)
-  const startDate = new Date();
-  startDate.setUTCHours(0, 0, 0, 0);
-  startDate.setUTCDate(startDate.getUTCDate() + 7); // начинаем со следующей недели
-  
-  const dates = this.generateDatesFromWeekdaysUTC(startDate, targetDays, weeks);
-  
-  const recurringId = crypto.randomUUID();
-  const recurringEnd = dates[dates.length - 1];
-  
-  // Создаем занятия для каждого дня
-  for (const date of dates) {
-    const booking = this.bookingRepository.create({
-      student_id: studentId,
-      tutor_id: groupListing.tutor_id,
-      listing_id: undefined,
-      date: date,
-      time: time,
-      status: BookingStatus.CONFIRMED,
-      recurring_id: recurringId,
-      recurring_pattern: schedule,
-      recurring_end: recurringEnd,
-      group_booking_id: groupListing.id
-    });
-    await this.bookingRepository.save(booking);
-  }
-}
-
-// Генерация дат по дням недели (в UTC)
-private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], weeks: number): string[] {
-  const dates: string[] = [];
-  const start = new Date(startDate);
-  const startDay = start.getUTCDay();
-  
-  // Находим первый подходящий день
-  let firstDate = new Date(start);
-  let daysToAdd = 0;
-  
-  while (!targetDays.includes((startDay + daysToAdd) % 7) && daysToAdd < 7) {
-    daysToAdd++;
-  }
-  
-  if (daysToAdd > 0) {
-    firstDate.setUTCDate(start.getUTCDate() + daysToAdd);
-  }
-  
-  // Генерируем даты
-  for (let week = 0; week < weeks; week++) {
-    for (const targetDay of targetDays) {
-      const currentDate = new Date(firstDate);
-      const dayDiff = (targetDay - firstDate.getUTCDay() + 7) % 7 + week * 7;
-      currentDate.setUTCDate(firstDate.getUTCDate() + dayDiff);
-      dates.push(dateUtils.getUTCString(currentDate));
+  private async createSeriesForStudent(studentId: number, groupListing: any): Promise<void> {
+    const schedule = groupListing.schedule;
+    const weeks = groupListing.weeks || 4;
+    
+    // Парсим расписание: "ПН/СР 09:00" -> дни ["ПН", "СР"] и время "09:00"
+    const [daysStr, time] = schedule.split(' ');
+    const days = daysStr.split('/');
+    
+    // Маппинг дней недели
+    const dayMap: Record<string, number> = {
+      'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 0
+    };
+    
+    const targetDays = days.map(d => dayMap[d]);
+    
+    // Генерируем даты на следующие weeks недель (в UTC)
+    const startDate = new Date();
+    startDate.setUTCHours(0, 0, 0, 0);
+    startDate.setUTCDate(startDate.getUTCDate() + 7); // начинаем со следующей недели
+    
+    const dates = this.generateDatesFromWeekdaysUTC(startDate, targetDays, weeks);
+    
+    const recurringId = crypto.randomUUID();
+    const recurringEnd = dates[dates.length - 1];
+    
+    // Создаем занятия для каждого дня
+    for (const date of dates) {
+      const booking = this.bookingRepository.create({
+        student_id: studentId,
+        tutor_id: groupListing.tutor_id,
+        listing_id: undefined,
+        date: date,
+        time: time,
+        status: BookingStatus.CONFIRMED,
+        recurring_id: recurringId,
+        recurring_pattern: schedule,
+        recurring_end: recurringEnd,
+        group_booking_id: groupListing.id
+      });
+      await this.bookingRepository.save(booking);
     }
   }
-  
-  return dates.sort();
-}
+
+  // Генерация дат по дням недели (в UTC)
+  private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], weeks: number): string[] {
+    const dates: string[] = [];
+    const start = new Date(startDate);
+    const startDay = start.getUTCDay();
+    
+    // Находим первый подходящий день
+    let firstDate = new Date(start);
+    let daysToAdd = 0;
+    
+    while (!targetDays.includes((startDay + daysToAdd) % 7) && daysToAdd < 7) {
+      daysToAdd++;
+    }
+    
+    if (daysToAdd > 0) {
+      firstDate.setUTCDate(start.getUTCDate() + daysToAdd);
+    }
+    
+    // Генерируем даты
+    for (let week = 0; week < weeks; week++) {
+      for (const targetDay of targetDays) {
+        const currentDate = new Date(firstDate);
+        const dayDiff = (targetDay - firstDate.getUTCDay() + 7) % 7 + week * 7;
+        currentDate.setUTCDate(firstDate.getUTCDate() + dayDiff);
+        dates.push(dateUtils.getUTCString(currentDate));
+      }
+    }
+    
+    return dates.sort();
+  }
 
   // Одобрить заявку (репетитор) — создаем серию занятий
   async approve(id: number, tutorId: number): Promise<GroupBooking> {
@@ -258,6 +266,20 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
     
     groupListing.current_students += 1;
     await this.groupListingsService.updateCurrentStudents(groupListing.id, groupListing.current_students);
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СОСТАВА ГРУППЫ
+    const student = await this.usersService.findById(booking.student_id);
+    const studentName = student?.profile?.first_name || student?.email?.split('@')[0] || 'Студент';
+    this.eventsService.notifyGroupStudentsChanged(groupListing.id, {
+      action: 'joined',
+      studentId: booking.student_id,
+      studentName,
+      currentCount: groupListing.current_students,
+      maxStudents: groupListing.max_students,
+    });
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СТАТУСА ГРУППОВОЙ ЗАЯВКИ
+    this.eventsService.notifyGroupBookingStatusChanged(booking);
     
     // Добавляем ученика в групповой чат
     await this.chatService.addMemberToGroupChat(groupListing.id, booking.student_id);
@@ -285,7 +307,12 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
     }
     
     booking.status = GroupBookingStatus.REJECTED;
-    return await this.groupBookingRepository.save(booking);
+    const savedBooking = await this.groupBookingRepository.save(booking);
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СТАТУСА ГРУППОВОЙ ЗАЯВКИ
+    this.eventsService.notifyGroupBookingStatusChanged(savedBooking);
+    
+    return savedBooking;
   }
 
   // Отменить заявку (ученик) — только для pending
@@ -338,6 +365,17 @@ private generateDatesFromWeekdaysUTC(startDate: Date, targetDays: number[], week
     const groupListing = await this.groupListingsService.findOne(groupListingId);
     groupListing.current_students -= 1;
     await this.groupListingsService.updateCurrentStudents(groupListing.id, groupListing.current_students);
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СОСТАВА ГРУППЫ
+    const student = await this.usersService.findById(studentId);
+    const studentName = student?.profile?.first_name || student?.email?.split('@')[0] || 'Студент';
+    this.eventsService.notifyGroupStudentsChanged(groupListingId, {
+      action: 'left',
+      studentId,
+      studentName,
+      currentCount: groupListing.current_students,
+      maxStudents: groupListing.max_students,
+    });
     
     // Удаляем ученика из группового чата
     await this.chatService.removeMemberFromGroupChat(groupListingId, studentId);

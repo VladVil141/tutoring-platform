@@ -8,12 +8,14 @@ import { Listing } from './entities/listing.entity';
 import { GroupListing } from './entities/group-listing.entity';
 import { UsersModule } from '../users/users.module';
 import { ChatModule } from '../chat/chat.module';
+import { EventsModule } from '../events/events.module';  // 👈 ДОБАВИТЬ
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Listing, GroupListing]),
     UsersModule,
     forwardRef(() => ChatModule),
+    EventsModule,  // 👈 ДОБАВИТЬ (без forwardRef)
   ],
   controllers: [ListingsController, GroupListingsController],
   providers: [ListingsService, GroupListingsService],

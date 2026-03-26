@@ -6,6 +6,7 @@ import { CreateGroupListingDto } from './dto/create-group-listing.dto';
 import { UpdateGroupListingDto } from './dto/update-group-listing.dto';
 import { UsersService } from '../users/users.service';
 import { ChatService } from '../chat/chat.service';
+import { EventsService } from '../events/events.service';  // 👈 ДОБАВИТЬ
 
 @Injectable()
 export class GroupListingsService {
@@ -15,6 +16,7 @@ export class GroupListingsService {
     private usersService: UsersService,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
+    private eventsService: EventsService,  // 👈 ДОБАВИТЬ
   ) {}
 
   async create(tutorId: number, createDto: CreateGroupListingDto): Promise<GroupListing> {
@@ -127,5 +129,43 @@ export class GroupListingsService {
   // Обновить статус активности
   async updateActiveStatus(id: number, isActive: boolean): Promise<void> {
     await this.groupListingRepository.update(id, { is_active: isActive });
+  }
+
+  // 👇 НОВЫЙ МЕТОД: Увеличить количество учеников
+  async incrementCurrentStudents(id: number, studentId: number, studentName: string): Promise<GroupListing> {
+    const listing = await this.findOne(id);
+    
+    listing.current_students += 1;
+    const updatedListing = await this.groupListingRepository.save(listing);
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СОСТАВА ГРУППЫ
+    this.eventsService.notifyGroupStudentsChanged(id, {
+      action: 'joined',
+      studentId,
+      studentName,
+      currentCount: updatedListing.current_students,
+      maxStudents: updatedListing.max_students,
+    });
+    
+    return updatedListing;
+  }
+
+  // 👇 НОВЫЙ МЕТОД: Уменьшить количество учеников
+  async decrementCurrentStudents(id: number, studentId: number, studentName: string): Promise<GroupListing> {
+    const listing = await this.findOne(id);
+    
+    listing.current_students = Math.max(0, listing.current_students - 1);
+    const updatedListing = await this.groupListingRepository.save(listing);
+    
+    // 👈 УВЕДОМЛЕНИЕ ОБ ИЗМЕНЕНИИ СОСТАВА ГРУППЫ
+    this.eventsService.notifyGroupStudentsChanged(id, {
+      action: 'left',
+      studentId,
+      studentName,
+      currentCount: updatedListing.current_students,
+      maxStudents: updatedListing.max_students,
+    });
+    
+    return updatedListing;
   }
 }

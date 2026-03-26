@@ -432,11 +432,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useChatStore } from '../stores/chat';
 import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
+import { socketService } from '../services/socket';
 import { bookingService } from '../services/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -463,6 +464,52 @@ const rescheduleForm = ref({
   new_time: '',
   reason: ''
 });
+
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Новая заявка
+  socketService.on('booking:new', (data) => {
+    console.log('📡 [TutorBookings] Новая заявка:', data);
+    loadBookings();
+    loadPendingReschedules();
+    ElMessage.info(`Новая заявка от ${data.studentName}`);
+  });
+
+  // Изменение статуса заявки
+  socketService.on('booking:updated', (data) => {
+    console.log('📡 [TutorBookings] Статус изменен:', data);
+    loadBookings();
+    loadPendingReschedules();
+  });
+
+  // Новая групповая заявка
+  socketService.on('group_booking:new', (data) => {
+    console.log('📡 [TutorBookings] Новая групповая заявка:', data);
+    groupBookingStore.fetchTutorBookings();
+    ElMessage.info(`Новая заявка в группу "${data.groupTitle}" от ${data.studentName}`);
+  });
+
+  // Изменение статуса групповой заявки
+  socketService.on('group_booking:status_changed', (data) => {
+    console.log('📡 [TutorBookings] Статус групповой заявки:', data);
+    groupBookingStore.fetchTutorBookings();
+  });
+
+  // Запрос на перенос
+socketService.on('reschedule:requested', (data) => {
+  console.log('📡 [TutorBookings] Запрос на перенос:', data);
+  loadPendingReschedules();  // 👈 ДОБАВИТЬ
+  loadBookings();            // 👈 ДОБАВИТЬ
+  ElMessage.info(`Запрос на перенос от ${data.requesterName}`);
+});
+
+// Статус переноса
+socketService.on('reschedule:status_changed', (data) => {
+  console.log('📡 [TutorBookings] Статус переноса:', data);
+  loadPendingReschedules();  // 👈 ДОБАВИТЬ
+  loadBookings();            // 👈 ДОБАВИТЬ
+});
+}
 
 // Запрет на прошедшие даты
 function disabledDate(time: Date) {
@@ -786,10 +833,19 @@ async function contactStudent(booking: any) {
   }
 }
 
+// 👇 Инициализация при монтировании
 onMounted(async () => {
   await loadBookings();
   await groupBookingStore.fetchTutorBookings();
   await loadPendingReschedules();
+  
+  // 👈 Инициализируем WebSocket слушатели
+  initWebSocketListeners();
+});
+
+// 👇 Отписка при размонтировании
+onUnmounted(() => {
+  // Удаляем слушатели (опционально, можно оставить)
 });
 </script>
 

@@ -15,6 +15,7 @@ import { Attendance } from './entities/attendance.entity';
 import { ListingsModule } from '../listings/listings.module';
 import { UsersModule } from '../users/users.module';
 import { ChatModule } from '../chat/chat.module';
+import { EventsModule } from '../events/events.module';  // 👈 ДОБАВИТЬ
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ChatModule } from '../chat/chat.module';
     ListingsModule,
     UsersModule,
     forwardRef(() => ChatModule),
+    EventsModule,  // 👈 ДОБАВИТЬ (без forwardRef)
   ],
   controllers: [BookingsController, GroupBookingsController, RescheduleController, AttendanceController],
   providers: [BookingsService, GroupBookingsService, RescheduleService, AttendanceService],

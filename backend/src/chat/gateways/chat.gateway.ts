@@ -52,7 +52,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         sockets.push(client.id);
       }
 
-      // Присоединяемся к личным комнатам
+      // Присоединяемся к существующим комнатам
       const chats = await this.chatService.getUserChats(userId);
       chats.private.forEach(chat => {
         client.join(`private:${chat.id}`);
@@ -84,29 +84,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('send_message')
-async handleSendMessage(
-  @ConnectedSocket() client: Socket,
-  @MessageBody() data: SendMessageDto,
-) {
-  const userId = client.data.userId;
-  
-  // Сохраняем сообщение
-  const message = await this.chatService.sendMessage(userId, data);
-  
-  // ✅ Загружаем полные данные сообщения с отправителем
-  const fullMessage = await this.chatService.getMessageWithSender(message.id);
-  
-  // Отправляем в комнату
-  const room = `${data.chat_type}:${data.chat_id}`;
-  this.server.to(room).emit('new_message', fullMessage);
-  
-  // Уведомление получателям (если нужно)
-  if (data.chat_type === 'private') {
-    const chat = await this.chatService.getPrivateChat(data.chat_id);
-    const receiverId = chat.student_id === userId ? chat.tutor_id : chat.student_id;
-    this.notifyUser(receiverId, 'new_message', fullMessage);
+  async handleSendMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: SendMessageDto,
+  ) {
+    const userId = client.data.userId;
+    
+    // 👈 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: принудительно присоединяем к комнате
+    const room = `${data.chat_type}:${data.chat_id}`;
+    client.join(room);
+    
+    // Сохраняем сообщение
+    const message = await this.chatService.sendMessage(userId, data);
+    
+    // Загружаем полные данные сообщения с отправителем
+    const fullMessage = await this.chatService.getMessageWithSender(message.id);
+    
+    // Отправляем всем в комнате (включая отправителя)
+    this.server.to(room).emit('new_message', fullMessage);
+    
+    // Уведомление получателям (если нужно) - уже не обязательно, т.к. все в комнате
+    if (data.chat_type === 'private') {
+      const chat = await this.chatService.getPrivateChat(data.chat_id);
+      const receiverId = chat.student_id === userId ? chat.tutor_id : chat.student_id;
+      // Это уже избыточно, так как получатель тоже в комнате
+      // Но оставляем для совместимости
+      this.notifyUser(receiverId, 'new_message', fullMessage);
+    }
   }
-}
 
   // Удалить сообщение
   @SubscribeMessage('delete_message')

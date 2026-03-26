@@ -167,14 +167,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGroupListingStore } from '../stores/groupListing';
 import { useAuthStore } from '../stores/auth';
 import { useChatStore } from '../stores/chat';
+import { useGroupBookingStore } from '../stores/groupBooking';
+import { socketService } from '../services/socket';
 import { ArrowLeft, Location, Calendar } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { useGroupBookingStore } from '../stores/groupBooking';
 
 const route = useRoute();
 const router = useRouter();
@@ -187,6 +188,7 @@ const loading = ref(false);
 const applying = ref(false);
 const hasApplied = ref(false);
 const isInGroup = ref(false);
+const currentStudents = ref(0);
 
 const listing = computed(() => groupStore.currentListing);
 
@@ -195,9 +197,40 @@ const isOwner = computed(() => {
   return authStore.user.id === listing.value.tutor_id;
 });
 
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Изменение состава группы
+  socketService.on('group:students_changed', (data) => {
+    console.log('📡 [GroupListingDetail] Состав группы изменен:', data);
+    if (listing.value && data.groupListingId === listing.value.id) {
+      currentStudents.value = data.currentCount;
+      // Обновляем данные в сторе
+      if (groupStore.currentListing) {
+        groupStore.currentListing.current_students = data.currentCount;
+        groupStore.currentListing.is_active = data.currentCount < groupStore.currentListing.max_students;
+      }
+    }
+  });
+
+  // Изменение статуса групповой заявки
+  socketService.on('group_booking:status_changed', (data) => {
+    console.log('📡 [GroupListingDetail] Статус заявки:', data);
+    if (listing.value && data.groupListingId === listing.value.id) {
+      checkBookingStatus();
+    }
+  });
+}
+
 onMounted(async () => {
   await loadListing();
   await checkBookingStatus();
+  // 👈 Инициализируем WebSocket слушатели
+  initWebSocketListeners();
+});
+
+// 👈 Отписка при размонтировании
+onUnmounted(() => {
+  // Удаление слушателей (опционально)
 });
 
 async function checkBookingStatus() {
@@ -214,6 +247,11 @@ async function checkBookingStatus() {
     } else if (existing.status === 'approved') {
       isInGroup.value = true;
     }
+  }
+  
+  // Обновляем текущее количество студентов из стора
+  if (listing.value) {
+    currentStudents.value = listing.value.current_students;
   }
 }
 
@@ -235,6 +273,9 @@ async function loadListing() {
   
   loading.value = true;
   await groupStore.fetchListing(id);
+  if (listing.value) {
+    currentStudents.value = listing.value.current_students;
+  }
   loading.value = false;
 }
 

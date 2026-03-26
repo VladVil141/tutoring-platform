@@ -403,11 +403,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
 import { useChatStore } from '../stores/chat';
+import { socketService } from '../services/socket';
 import { bookingService } from '../services/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -434,6 +435,52 @@ const rescheduleForm = ref({
   new_time: '',
   reason: ''
 });
+
+// 👇 Инициализация WebSocket слушателей
+function initWebSocketListeners() {
+  // Изменение статуса заявки (для студента)
+  socketService.on('booking:updated', (data) => {
+    console.log('📡 [StudentBookings] Статус заявки изменен:', data);
+    loadBookings();
+    loadPendingReschedules();
+    
+    const statusText = getStatusText(data.status);
+    ElMessage.info(`Статус заявки #${data.id}: ${statusText}`);
+  });
+
+  // 👇 ЗАПРОС НА ПЕРЕНОС (для студента)
+  socketService.on('reschedule:requested', (data) => {
+    console.log('📡 [StudentBookings] Запрос на перенос:', data);
+    loadPendingReschedules();  // 👈 ОБНОВЛЯЕМ СПИСОК ЗАПРОСОВ
+    loadBookings();
+    ElMessage.info(`${data.requesterName} запросил(а) перенос занятия`);
+  });
+
+  // 👇 СТАТУС ПЕРЕНОСА (для студента)
+  socketService.on('reschedule:status_changed', (data) => {
+    console.log('📡 [StudentBookings] Статус переноса:', data);
+    loadPendingReschedules();  // 👈 ОБНОВЛЯЕМ СПИСОК ЗАПРОСОВ
+    loadBookings();
+    
+    const statusText = data.status === 'confirmed' ? 'одобрен' : 'отклонен';
+    ElMessage.info(`Запрос на перенос ${statusText}`);
+  });
+
+  // Изменение статуса групповой заявки
+  socketService.on('group_booking:status_changed', (data) => {
+    console.log('📡 [StudentBookings] Статус групповой заявки:', data);
+    groupBookingStore.fetchMyBookings();
+    
+    const statusText = data.status === 'approved' ? 'одобрена' : 'отклонена';
+    ElMessage.info(`Заявка в группу "${data.groupTitle}" ${statusText}`);
+  });
+
+  // Изменение состава группы
+  socketService.on('group:students_changed', (data) => {
+    console.log('📡 [StudentBookings] Состав группы изменен:', data);
+    groupBookingStore.fetchMyBookings();
+  });
+}
 
 // Групповые заявки
 const groupBookings = computed(() => groupBookingStore.myBookings);
@@ -731,6 +778,14 @@ onMounted(async () => {
   await loadBookings();
   await groupBookingStore.fetchMyBookings();
   await loadPendingReschedules();
+  
+  // 👈 Инициализируем WebSocket слушатели
+  initWebSocketListeners();
+});
+
+// 👈 Отписка при размонтировании
+onUnmounted(() => {
+  // Удаление слушателей (опционально)
 });
 </script>
 
