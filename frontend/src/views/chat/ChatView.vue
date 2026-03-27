@@ -35,7 +35,7 @@
         <div v-else class="messages-list">
           <div
             v-for="message in messages"
-            :key="message.id"
+            :key="`${message.id}-${message.created_at}`"
             class="message"
             :class="{ 'own-message': message.sender_id === authStore.user?.id }"
           >
@@ -125,16 +125,18 @@ async function loadMessages() {
 }
 
 // Отправить сообщение
-async function sendMessage() {
-  if (!newMessage.value.trim()) return;
+let sendCount = 0;
 
-  console.log('Sending message:', { chatType: chatType.value, chatId: chatId.value, text: newMessage.value }); // 👈 добавить
+async function sendMessage() {
+  sendCount++;
+  console.log(`📤 sendMessage вызван #${sendCount}`);
   
-  sending.value = true;
-  chatStore.sendMessage(chatType.value, chatId.value, newMessage.value);
+  if (!newMessage.value.trim()) return;
+  
+  const text = newMessage.value;
   newMessage.value = '';
-  sending.value = false;
-  await scrollToBottom();
+  
+  chatStore.sendMessage(chatType.value, chatId.value, text);
 }
 
 // Прокрутка вниз

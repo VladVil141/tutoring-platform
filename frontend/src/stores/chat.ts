@@ -92,20 +92,18 @@ function getLastMessageForChat(chatId: number): string {
 
   // 👇 Добавить сообщение и обновить непрочитанные
   function addMessage(message: Message) {
-    // Добавляем в текущий чат, если открыт
-    if (currentMessages.value.some(m => m.id === message.id)) return;
-    currentMessages.value.push(message);
-    
-    // Сохраняем в общее хранилище для превью
-    const key = getChatKey(message.chat_type, message.chat_id);
-    if (!messagesByChat.value.has(key)) {
-      messagesByChat.value.set(key, []);
-    }
-    messagesByChat.value.get(key)!.push(message);
-    
-    // Увеличиваем счетчик непрочитанных (если это не текущий открытый чат)
-    // TODO: нужно знать текущий открытый чат
+  const exists = currentMessages.value.some(m => m.id === message.id);
+  if (exists) return;
+  
+  // 👈 СОЗДАЕМ НОВЫЙ МАССИВ
+  currentMessages.value = [...currentMessages.value, message];
+  
+  const key = getChatKey(message.chat_type, message.chat_id);
+  if (!messagesByChat.value.has(key)) {
+    messagesByChat.value.set(key, []);
   }
+  messagesByChat.value.get(key)!.push(message);
+}
 
   // 👇 Загрузить все чаты и последние сообщения
   async function fetchChatsWithMessages() {

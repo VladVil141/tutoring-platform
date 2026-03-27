@@ -196,15 +196,17 @@ function initWebSocketListeners() {
   });
 }
 
+// Удали initWebSocketListeners полностью
 onMounted(async () => {
+  console.log('ChatListView mounted');
   await chatStore.fetchChats();
-  // Загружаем последние сообщения для каждого чата
   await chatStore.fetchChatsWithMessages();
-  initWebSocketListeners();
+  // НЕТ initWebSocketListeners
 });
 
 onUnmounted(() => {
-  // Очистка слушателей (опционально)
+  console.log('ChatListView unmounted');
+  // НЕТ отписки
 });
 </script>
 
