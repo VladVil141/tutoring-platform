@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 const api: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: '/api',  // 👈 ИЗМЕНЕНО: относительный путь
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,16 +34,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// 👇 НОВЫЙ ИНТЕРСЕПТОР для преобразования дат
-// Преобразуем локальные даты в UTC перед отправкой
-api.interceptors.request.use((config) => {
-  if (config.data && (config.data.date || config.data.time)) {
-    // Здесь можно добавить логику преобразования
-    // Пока оставляем как есть, преобразование будет в компонентах
-  }
-  return config;
-});
 
 export const authService = {
   register: (data: any) => api.post('/auth/register', data),
@@ -90,7 +80,6 @@ export const bookingService = {
   cancelRecurring: (recurringId: string) => api.delete(`/bookings/recurring/${recurringId}`),
   checkAvailability: (listingId: number, date: string, time: string) => 
     api.get('/bookings/check-availability', { params: { listing_id: listingId, date, time } }),
-  // Переносы
   createReschedule: (data: any) => api.post('/bookings/reschedule', data),
   getPendingReschedules: () => api.get('/bookings/reschedule/pending'),
   confirmReschedule: (id: number) => api.put(`/bookings/reschedule/${id}/confirm`),
@@ -119,23 +108,12 @@ export const attendanceService = {
 };
 
 export const chatService = {
-  // Получить все чаты
   getChats: () => api.get('/chat/chats'),
-  
-  // Создать личный чат
   createPrivateChat: (tutorId: number) => api.post('/chat/private', { tutor_id: tutorId }),
-  
-  // Получить сообщения чата
   getMessages: (type: 'private' | 'group', chatId: number, limit?: number) => 
     api.get(`/chat/${type}/${chatId}/messages`, { params: { limit } }),
-  
-  // Удалить личный чат
   deletePrivateChat: (chatId: number) => api.delete(`/chat/private/${chatId}`),
-  
-  // Удалить групповой чат у себя
   deleteGroupChat: (chatId: number) => api.delete(`/chat/group/${chatId}`),
-  
-  // Удалить групповой чат для всех (только репетитор)
   deleteGroupChatForAll: (chatId: number) => api.delete(`/chat/group/${chatId}/all`),
 };
 

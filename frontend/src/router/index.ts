@@ -106,7 +106,6 @@ const router = createRouter({
       component: () => import('../views/AttendanceView.vue'),
       meta: { requiresAuth: true, requiresTutor: true },
     },
-    // 👇 НОВЫЕ МАРШРУТЫ ДЛЯ ЧАТА
     {
       path: '/chats',
       name: 'chats',
@@ -119,6 +118,24 @@ const router = createRouter({
       component: () => import('../views/chat/ChatView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/courses',
+      name: 'courses',
+      component: () => import('../views/courses/MyCoursesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/courses/:id',
+      name: 'course-detail',
+      component: () => import('../views/courses/CourseDetailView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/courses/join/:token',
+      name: 'join-course',
+      component: () => import('../views/courses/JoinCourseView.vue'),
+      meta: { requiresAuth: true },
+    }
   ],
 })
 

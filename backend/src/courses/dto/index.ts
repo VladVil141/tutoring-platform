@@ -1,0 +1,12 @@
+export { CreateCourseDto } from './create-course.dto';
+export { UpdateCourseDto } from './update-course.dto';
+export { CreateSectionDto } from './create-section.dto';
+export { UpdateSectionDto } from './update-section.dto';
+export { CreateMaterialDto } from './create-material.dto';
+export { CreateHomeworkDto } from './create-homework.dto';
+export { UpdateHomeworkDto } from './update-homework.dto';
+export { SubmitHomeworkDto } from './submit-homework.dto';
+export { GradeHomeworkDto } from './grade-homework.dto';
+export { CreateTestDto, CreateTestQuestionDto } from './create-test.dto';
+export { SubmitTestDto } from './submit-test.dto';
+export { JoinCourseDto } from './join-course.dto';

@@ -197,6 +197,10 @@
         <AttendanceView />
       </el-tab-pane>
 
+      <el-tab-pane label="Мои курсы" name="courses">
+        <MyCoursesView />
+      </el-tab-pane>
+
       <el-tab-pane label="Сообщения" name="chats">
         <div class="chats-preview">
           <el-button type="primary" @click="$router.push('/chats')">
@@ -218,6 +222,7 @@ import { useBookingStore } from '../stores/booking';
 import { useGroupBookingStore } from '../stores/groupBooking';
 import StudentBookingsView from './StudentBookingsView.vue';
 import TutorBookingsView from './TutorBookingsView.vue';
+import MyCoursesView from './courses/MyCoursesView.vue';
 import AttendanceView from './AttendanceView.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 

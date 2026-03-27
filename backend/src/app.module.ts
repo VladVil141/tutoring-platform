@@ -6,7 +6,8 @@ import { UsersModule } from './users/users.module';
 import { ListingsModule } from './listings/listings.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { ChatModule } from './chat/chat.module';
-import { EventsModule } from './events/events.module';  // 👈 ДОБАВИТЬ
+import { EventsModule } from './events/events.module';
+import { CoursesModule } from './courses/courses.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { EventsModule } from './events/events.module';  // 👈 ДОБАВИТЬ
     ListingsModule,
     BookingsModule,
     ChatModule,
-    EventsModule,  // 👈 ДОБАВИТЬ
+    EventsModule,
+    CoursesModule,
   ],
 })
 export class AppModule {}
