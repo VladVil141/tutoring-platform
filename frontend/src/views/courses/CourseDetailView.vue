@@ -145,7 +145,7 @@
                             :on-success="() => reloadCourse()"
                             :on-error="handleUploadError"
                             :show-file-list="false"
-                            :before-upload="(file) => checkDeadline(homework.deadline, file)"
+                            :before-upload="(file: any) => checkDeadline(homework.deadline, file)"
                           >
                             <el-button size="small" type="primary">
                               Сдать работу
