@@ -13,6 +13,10 @@ pnpm-lock.yaml
 .env.test
 
 # Structure project
+project-structure.txt
+all-entities.txt
+database-entities-structure.txt
+frontend-full.txt
 backend-files.txt
 
 # Secrets and keys

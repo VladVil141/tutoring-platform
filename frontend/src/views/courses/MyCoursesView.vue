@@ -87,6 +87,10 @@ const router = useRouter();
 const courseStore = useCourseStore();
 const authStore = useAuthStore();
 
+const showCreateDialog = ref(false)
+const creating = ref(false)
+const newCourse = ref({ title: '', description: '' })
+
 const isTutor = computed(() => authStore.isTutor);
 const loading = computed(() => courseStore.loading);
 
