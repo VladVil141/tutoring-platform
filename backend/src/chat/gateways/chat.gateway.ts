@@ -15,13 +15,13 @@ import { DeleteMessageDto } from '../dto/delete-message.dto';
 
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:5173',
+    origin: ['http://localhost:5173', 'http://158.160.55.141'],
     credentials: true,
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private userSockets: Map<number, string[]> = new Map();
 
