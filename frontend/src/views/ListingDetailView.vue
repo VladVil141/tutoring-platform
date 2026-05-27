@@ -232,7 +232,7 @@
         @click="submitBooking" 
         :loading="bookingLoading"
       >
-        {{ isRecurring ? 'Создать расписание' : 'Отправить заявку' }}
+        {{ isRecurring ? 'Отправить заявку' : 'Отправить заявку' }}
       </el-button>
     </span>
   </template>
