@@ -3,12 +3,12 @@ import { io, Socket } from 'socket.io-client';
 
 // Определяем URL в зависимости от окружения
 const getSocketUrl = () => {
-  // Для production (сборка на сервере)
-  if (import.meta.env.PROD) {
-    return ''; // пустая строка = текущий домен
+  // Для разработки (локально на компьютере разработчика)
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000';
   }
-  // Для разработки (локально)
-  return import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+  // Для production (сборка на ВМ)
+  return '';
 };
 
 class SocketService {
